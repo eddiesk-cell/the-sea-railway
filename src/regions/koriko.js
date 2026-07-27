@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -19,9 +19,9 @@ export function buildKoriko(shared) {
   const group = new THREE.Group();
   const rnd = mulberry(1989);
 
-  const wallA = makePaintMaterial(shared, { color: '#e8dcc2', shadowTint: '#5a5150', rim: 0.65, bands: 3, grain: 0.16 });
-  const wallB = makePaintMaterial(shared, { color: '#d6c3a4', shadowTint: '#4e4644', rim: 0.65, bands: 3, grain: 0.18 });
-  const wallC = makePaintMaterial(shared, { color: '#c9d3cf', shadowTint: '#464f56', rim: 0.7, bands: 3, grain: 0.16 });
+  const wallA = makePaintMaterial(shared, { color: '#cfc0a0', shadowTint: '#5a5150', rim: 0.65, bands: 3, grain: 0.16 });
+  const wallB = makePaintMaterial(shared, { color: '#bda887', shadowTint: '#4e4644', rim: 0.65, bands: 3, grain: 0.18 });
+  const wallC = makePaintMaterial(shared, { color: '#adb8b4', shadowTint: '#464f56', rim: 0.7, bands: 3, grain: 0.16 });
   const tile = makePaintMaterial(shared, { color: '#b84f36', shadowTint: '#3e1c26', rim: 0.9, bands: 3, grain: 0.18, side: THREE.DoubleSide });
   const tile2 = makePaintMaterial(shared, { color: '#8e4a34', shadowTint: '#331821', rim: 0.9, bands: 3, grain: 0.18, side: THREE.DoubleSide });
   const stone = makePaintMaterial(shared, { color: '#8d8578', shadowTint: '#333038', rim: 0.6, bands: 3, grain: 0.22, grainScale: 1.2 });
@@ -29,7 +29,7 @@ export function buildKoriko(shared) {
   const grassM = makePaintMaterial(shared, { color: '#5c7a3c', shadowTint: '#1f2f22', rim: 0.5, bands: 3, grain: 0.2, grainScale: 0.5, sway: 0.03, translucency: 0.7 });
 
   // ---- the hill the town is built up ----
-  const HX = -790, HZ = -1300;
+  const HX = -520, HZ = -1300;
   {
     const h = new THREE.Mesh(hill(360, 118, 12, { rough: 0.10, rings: 18, sectors: 26 }), grassM);
     h.position.set(HX, -6, HZ);
@@ -41,6 +41,25 @@ export function buildKoriko(shared) {
     const q = new THREE.Mesh(box(9, 7, 900), stone);
     q.position.set(HX + 300, 1.6, HZ - 40);
     group.add(q);
+    // the quay in front of it, and boats tied along its length — the reason
+    // the town is here at all, and the thing that makes it a harbour and not
+    // simply a hill somebody built on
+    const quay = new THREE.Mesh(box(26, 4, 880), stone);
+    quay.position.set(HX + 316, 0.4, HZ - 40);
+    group.add(quay);
+    const hullM = makePaintMaterial(shared, { color: '#7c4a3c', shadowTint: '#2a1820', rim: 1.0, bands: 3, grain: 0.18 });
+    const hullB = makePaintMaterial(shared, { color: '#37556b', shadowTint: '#141e2c', rim: 1.0, bands: 3, grain: 0.18 });
+    for (let i = 0; i < 16; i++) {
+      const b = new THREE.Group();
+      b.position.set(HX + 336 + rnd() * 12, 0.9, HZ - 420 + i * 54 + rnd() * 20);
+      b.rotation.y = 1.57 + (rnd() - 0.5) * 0.3;
+      const hl = new THREE.Mesh(new THREE.SphereGeometry(1, 9, 6), rnd() > 0.5 ? hullM : hullB);
+      const L = 7 + rnd() * 9;
+      hl.scale.set(L * 0.30, L * 0.19, L); b.add(hl);
+      const mast = new THREE.Mesh(box(0.22, 6 + rnd() * 7, 0.22), stone);
+      mast.position.y = 4; b.add(mast);
+      group.add(b);
+    }
   }
 
   // ---- the town: a pitched roof needs only a squashed four-sided pyramid ----
@@ -65,20 +84,25 @@ export function buildKoriko(shared) {
     return d >= 1 ? -6 : -6 + 118 * Math.sqrt(Math.max(0, 1 - d * d));
   };
 
-  for (let i = 0; i < 340; i++) {
+  for (let i = 0; i < 520; i++) {
     const a = rnd() * Math.PI * 2;
-    const d = Math.pow(rnd(), 0.55) * 300;
+    // right down to the water, not a crown on the summit: Koriko covers its
+    // hill, and a bare front slope with roofs only along the top reads as a
+    // wooded hill that happens to have a village on it
+    const d = Math.pow(rnd(), 0.42) * 344;
     const x = HX + Math.cos(a) * d;
     const z = HZ + Math.sin(a) * d;
     const y = domeH(x, z);
     if (y < -4) continue;
-    const w = 6 + rnd() * 8, dp = 6 + rnd() * 9;
-    const h = 6 + rnd() * 12 + (1 - d / 336) * 5;
+    const w = 8 + rnd() * 9, dp = 8 + rnd() * 10;
+    const h = 5 + rnd() * 10 + (1 - d / 336) * 5;
     const ry = rnd() * Math.PI * 2;
     const item = { pos: [x, y + h / 2 - 1.5, z], rot: [0, ry, 0], scale: [w, h, dp] };
     const pick = rnd();
     (pick < 0.45 ? wallsA : pick < 0.78 ? wallsB : wallsC).push(item);
-    const rh = 2.4 + rnd() * 2.6;
+    // Koriko seen from the water is nine tenths ROOF. A tall wall with a cap
+    // on it reads as a warehouse district; the pantiles are the town.
+    const rh = 4.6 + rnd() * 4.4;
     const r = { pos: [x, y + h - 1.5, z], rot: [0, ry, 0], scale: [(w + 1.4) / 1.56, rh, (dp + 1.4) / 1.56] };
     (rnd() > 0.35 ? roofs : roofs2).push(r);
     if (rnd() > 0.45) {
@@ -98,6 +122,40 @@ export function buildKoriko(shared) {
   put(roofs, roofGeo, tile); put(roofs2, roofGeo, tile2);
   put(chimneys, unit, stone);
   void gableGeo;
+
+  // ---- trees on the slope below the last houses, so the town has an edge ----
+  {
+    const clump = (() => {
+      const parts = [];
+      for (let i = 0; i < 3; i++) {
+        const g = new THREE.IcosahedronGeometry(1, 0);
+        const p = g.attributes.position;
+        for (let v = 0; v < p.count; v++) {
+          const n = 0.7 + ((v * 11 + i * 23) % 15) / 26;
+          p.setXYZ(v, p.getX(v) * n, p.getY(v) * n * 0.9, p.getZ(v) * n);
+        }
+        g.computeVertexNormals();
+        const s = 0.52 + (i % 3) * 0.15;
+        g.scale(s, s, s);
+        g.translate((i - 1) * 0.44, 0.36 + (i % 2) * 0.26, ((i * 5) % 3 - 1) * 0.36);
+        parts.push(g);
+      }
+      return mergePN(parts);
+    })();
+    const dark = makePaintMaterial(shared, { color: '#41682f', shadowTint: '#152418', rim: 0.5, bands: 3, grain: 0.24, grainScale: 0.35, sway: 0.02, translucency: 0.5 });
+    const items = [];
+    for (let i = 0; i < 900; i++) {
+      const a = rnd() * Math.PI * 2;
+      const d = 348 + rnd() * 34;
+      const x = HX + Math.cos(a) * d, z = HZ + Math.sin(a) * d;
+      const y = domeH(x, z);
+      if (y < -4) continue;
+      const s = 3 + rnd() * 5;
+      items.push({ pos: [x, y - 1.5, z], rot: [0, rnd() * 6.28, 0], scale: [s, s * (0.9 + rnd() * 0.6), s] });
+    }
+    const m = new THREE.InstancedMesh(clump, dark, items.length);
+    fillInstances(m, items); m.frustumCulled = false; group.add(m);
+  }
 
   // ---- the clock tower, which is what the eye goes to ----
   {
@@ -125,9 +183,12 @@ export function buildKoriko(shared) {
 
   // ---- the lit windows that come on as the light goes ----
   {
-    const glow = makeGlowMaterial(shared, '#ffd28a', 0.9);
+    // Late afternoon, not midnight — a lit window at this hour is a warm
+    // rectangle, and at 0.9 through the bloom it becomes a floodlight that
+    // eats the roof it is set in.
+    const glow = makeGlowMaterial(shared, '#ffd28a', 0.26);
     const items = [];
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 150; i++) {
       const src = [wallsA, wallsB, wallsC][(rnd() * 3) | 0];
       if (!src.length) continue;
       const h = src[(rnd() * src.length) | 0];

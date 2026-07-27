@@ -52,13 +52,13 @@ const ORDER = [
     ink: 0, wet: 0, wind: 0.75,
     sound: { water: 0.45, wind: 0.40, town: 0.70, cry: 0.55 },
     fogDensity: 0.00042,
-    bloom: 1.05, sat: 1.06, vignette: 0.46, mist: 0.0, mistTop: 0,
+    bloom: 0.85, sat: 1.06, vignette: 0.46, mist: 0.06, mistTop: 30,
     // Late afternoon on a northern harbour, the light going gold on the roofs.
     palette: {
       zenith:  [0.120, 0.215, 0.430], mid: [0.290, 0.400, 0.610],
       horizon: [0.860, 0.700, 0.480], sun: [1.000, 0.830, 0.560],
       fog:     [0.780, 0.700, 0.560],
-      sunY: 0.20, cloud: 0.52, exposure: 0.96,
+      sunY: 0.20, az: 1.05, cloud: 0.52, exposure: 0.78,
     },
   },
   {
@@ -115,6 +115,22 @@ const ORDER = [
     },
   },
   {
+    id: 'iron', stop: 17, title: 'Iron Town', film: 'Princess Mononoke', year: 1997,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.45,
+    sound: { town: 0.95, knock: 0.90, water: 0.35, wind: 0.25, creak: 0.30 },
+    fogDensity: 0.00090,
+    bloom: 1.55, sat: 0.96, vignette: 0.72, mist: 0.55, mistTop: 40,
+    // Night on a lake, and one furnace. Everything is the colour of nothing so
+    // that the one orange in the middle of it can be the whole picture.
+    palette: {
+      zenith:  [0.030, 0.042, 0.062], mid: [0.062, 0.078, 0.098],
+      horizon: [0.150, 0.140, 0.130], sun: [0.360, 0.260, 0.180],
+      fog:     [0.115, 0.112, 0.112],
+      sunY: 0.14, az: 1.30, cloud: 0.80, exposure: 1.26,
+    },
+  },
+  {
     id: 'meadow', stop: 18, title: 'The Meadow', film: "Howl's Moving Castle", year: 2004,
     length: 2800, stationAt: 1400,
     ink: 0, wet: 0, wind: 0.95,
@@ -127,6 +143,21 @@ const ORDER = [
       horizon: [0.720, 0.820, 0.880], sun: [1.000, 0.965, 0.870],
       fog:     [0.700, 0.800, 0.870],
       sunY: 0.74, cloud: 0.60, exposure: 0.88,
+    },
+  },
+  {
+    id: 'market', stop: 19, title: 'Market Chipping', film: "Howl's Moving Castle", year: 2004,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.55,
+    sound: { town: 1.00, wind: 0.30, cry: 0.35, creak: 0.30, leaves: 0.25 },
+    fogDensity: 0.00040,
+    bloom: 1.00, sat: 1.08, vignette: 0.42, mist: 0.14, mistTop: 34,
+    // Mid-morning in a valley town: warm, hazy, and entirely untroubled.
+    palette: {
+      zenith:  [0.130, 0.255, 0.520], mid: [0.330, 0.480, 0.720],
+      horizon: [0.830, 0.800, 0.700], sun: [1.000, 0.940, 0.800],
+      fog:     [0.760, 0.750, 0.680],
+      sunY: 0.52, az: 0.95, cloud: 0.50, exposure: 0.92,
     },
   },
   {
@@ -143,6 +174,25 @@ const ORDER = [
       horizon: [0.760, 0.590, 0.360], sun: [1.000, 0.780, 0.470],
       fog:     [0.700, 0.580, 0.420],
       sunY: 0.26, cloud: 0.45, exposure: 0.98,
+    },
+  },
+  {
+    id: 'slag', stop: 23, title: 'Slag Ravine', film: 'Castle in the Sky', year: 1986,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.35,
+    sound: { town: 0.70, knock: 1.00, wind: 0.45, stream: 0.22, creak: 0.45 },
+    fogDensity: 0.00055,
+    bloom: 1.40, sat: 0.90, vignette: 0.70, mist: 0.22, mistTop: 46,
+    // First light at the bottom of a gorge. Night was the honest instinct and
+    // the wrong one: with no sun at all the rock, the town and the sky all
+    // resolve to the same black, and the region has nothing in it but three
+    // lit windows. Dawn keeps the coal and gives the walls something to be
+    // seen against.
+    palette: {
+      zenith:  [0.190, 0.235, 0.360], mid: [0.420, 0.400, 0.440],
+      horizon: [0.860, 0.620, 0.400], sun: [1.000, 0.780, 0.480],
+      fog:     [0.520, 0.440, 0.400],
+      sunY: 0.17, az: 1.15, cloud: 0.72, exposure: 0.98,
     },
   },
   {
@@ -234,7 +284,7 @@ function paletteOf(region, hour) {
   return {
     zenith: v3(p.zenith), mid: v3(p.mid), horizon: v3(p.horizon),
     sun: v3(p.sun), fog: v3(p.fog),
-    sunY: p.sunY, cloud: p.cloud, exposure: p.exposure,
+    sunY: p.sunY, az: p.az, cloud: p.cloud, exposure: p.exposure,
   };
 }
 

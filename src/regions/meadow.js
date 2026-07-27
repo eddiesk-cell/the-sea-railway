@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -33,18 +33,19 @@ export function buildMeadow(shared) {
   // =========================================================================
   for (const side of [-1, 1]) {
     for (let i = 0; i < 20; i++) {
+      const z = -120 - i * 132;
+      // The lake is not a thing you build — it is turf you decline to lay.
+      // The world already floats on water; leave a bay open and it fills.
+      // and it goes at the FAR end, not across the station — a lake where the
+      // train stops means the region you came to see is on the other side of it
+      const bay = side < 0 && z < -2020 && z > -2640;
+      const inner = bay ? 330 : 13;
       const b = new THREE.Mesh(box(1, 1, 1), i % 3 ? turf : turfD);
       const w = 220 + rnd() * 300;
-      b.position.set(side * (13 + w / 2), 0.3 + rnd() * 0.5, -120 - i * 132);
+      b.position.set(side * (inner + w / 2), 0.3 + rnd() * 0.5, z);
       b.scale.set(w, 2.4, 132 + rnd() * 30);
       group.add(b);
     }
-  }
-  // the lake: a break in the turf on one side, and the world's water fills it
-  {
-    const gap = new THREE.Mesh(box(340, 8, 460), turfD);
-    gap.position.set(-430, -2.0, -1500);
-    group.add(gap);
   }
 
   // ---- the far tops, with snow on them ----
@@ -77,7 +78,11 @@ export function buildMeadow(shared) {
       return mergePN(parts);
     })();
     const COLOURS = ['#f0e9a8', '#e8f0f4', '#d8a0c8', '#e8b45c', '#c8dcf0'];
-    COLOURS.forEach((c, ci) => {
+    // Two ranges, because a flower is only a flower for about eighty metres.
+    // Near, they are geometry. Far, they are drifts of colour lying flat on
+    // the turf — which is exactly what a meadow looks like from a train.
+    const patchGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    COLOURS.forEach((c) => {
       const mat = makePaintMaterial(shared, {
         color: c, shadowTint: '#4a5540', rim: 0.9, bands: 2, grain: 0.14,
         side: THREE.DoubleSide, sway: 0.06, translucency: 1.3,
@@ -85,14 +90,31 @@ export function buildMeadow(shared) {
       const items = [];
       for (let i = 0; i < 9000; i++) {
         const side = rnd() > 0.5 ? 1 : -1;
-        const x = side * (15 + Math.pow(rnd(), 0.75) * 380);
-        const z = -110 - rnd() * 2560;
-        const s = 2.6 + rnd() * 3.0;
+        const x = side * (14 + Math.pow(rnd(), 1.7) * 170);
+        const z = -110 - rnd() * 1900;
+        const s = 0.8 + rnd() * 1.1;
         items.push({ pos: [x, 1.5, z], rot: [0, rnd() * 6.28, 0], scale: [s, s * (0.8 + rnd() * 0.6), s] });
       }
       const m = new THREE.InstancedMesh(petal, mat, items.length);
       fillInstances(m, items); m.frustumCulled = false; group.add(m);
-      void ci;
+
+      const flat = makePaintMaterial(shared, {
+        color: c, shadowTint: '#4a5540', rim: 0.3, bands: 2, grain: 0.30, grainScale: 0.9,
+        // faint and wide. At half opacity and twenty metres across these read
+        // as coloured paper dropped on the grass, not as flowers in it.
+        transparent: true, opacity: 0.20, depthWrite: false,
+      });
+      const drifts = [];
+      for (let i = 0; i < 90; i++) {
+        const side = rnd() > 0.5 ? 1 : -1;
+        const w = 46 + rnd() * 150;
+        drifts.push({
+          pos: [side * (20 + Math.pow(rnd(), 0.8) * 470), 1.62, -140 - rnd() * 2500],
+          rot: [0, rnd() * 6.28, 0], scale: [w, 1, w * (0.5 + rnd() * 1.2)],
+        });
+      }
+      const dm = new THREE.InstancedMesh(patchGeo, flat, drifts.length);
+      fillInstances(dm, drifts); dm.frustumCulled = false; dm.renderOrder = 2; group.add(dm);
     });
   }
 
@@ -159,7 +181,7 @@ export function buildMeadow(shared) {
       legs.push({ g: leg, ph: i * 1.57 });
     }
   }
-  castle.scale.setScalar(1.35);
+  castle.scale.setScalar(1.9);
   group.add(castle);
 
   // its smoke
@@ -179,8 +201,10 @@ export function buildMeadow(shared) {
     // it walks the skyline, slowly, and never quite arrives
     // it walks a beat of the line, not the whole of it: a castle that has
     // wandered three kilometres off is a castle nobody at the station sees
-    const walk = (t * 6.0) % 1500;
-    const bx = -640, bz = -900 - walk;
+    // it walks a beat centred on the station, so the thing the region exists
+    // for is in the window most of the time rather than half of it
+    const walk = (t * 5.0) % 900;
+    const bx = -470, bz = -1180 - walk;
     const step = t * 1.15;
     const lurch = Math.sin(step) * 0.055 + Math.sin(step * 2.13) * 0.022;
     castle.position.set(bx, 14 + Math.abs(Math.sin(step)) * 3.2, bz);
@@ -209,20 +233,4 @@ export function buildMeadow(shared) {
   update(0);
 
   return { group, update };
-}
-
-function mergePN(list) {
-  let vc = 0;
-  const parts = list.map(g => { const s = g.index ? g.toNonIndexed() : g; vc += s.attributes.position.count; if (s !== g) g.dispose(); return s; });
-  const pos = new Float32Array(vc * 3), nrm = new Float32Array(vc * 3);
-  let o = 0;
-  parts.forEach(g => {
-    pos.set(g.attributes.position.array, o * 3);
-    nrm.set(g.attributes.normal.array, o * 3);
-    o += g.attributes.position.count; g.dispose();
-  });
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-  return out;
 }

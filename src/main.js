@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createSky } from './world/sky.js';
-import { atmosphereAt, REGIONS, LINE, LINE_END } from './regions/index.js';
+import { atmosphereAt, REGIONS, LINE, LINE_END, BLEND } from './regions/index.js';
 import { buildInkCountry } from './regions/inkCountry.js';
 import { buildBusStop } from './regions/busStop.js';
 import { buildDrownedRoad } from './regions/drownedRoad.js';
@@ -9,6 +9,9 @@ import { buildCedarForest } from './regions/cedarForest.js';
 import { buildMeadow } from './regions/meadow.js';
 import { buildValley } from './regions/valley.js';
 import { buildLaputa } from './regions/laputa.js';
+import { buildIronTown } from './regions/ironTown.js';
+import { buildMarketChipping } from './regions/marketChipping.js';
+import { buildSlagRavine } from './regions/slagRavine.js';
 import { createRain } from './world/rain.js';
 import { createSound, windAt } from './world/sound.js';
 import { createWater } from './world/water.js';
@@ -106,9 +109,9 @@ const grass = createGrass(shared, { count: 1_600_000 });
 scene.add(grass.mesh);
 
 // --- the regions up the line ---
-// Nine countries is far too much to build before the first frame, so each is
-// made the first time the line comes near it and then kept. `shift` slides a
-// region's geometry from the coordinates it was authored in to its place in
+// A dozen countries is far too much to build before the first frame, so each
+// is made the first time the line comes near it and then kept. `shift` slides
+// a region's geometry from the coordinates it was authored in to its place in
 // the running order, which is what lets the order change without touching a
 // builder.
 const BUILDERS = {
@@ -117,8 +120,11 @@ const BUILDERS = {
   bus:     () => buildBusStop(shared),
   ink:     () => buildInkCountry(shared),
   cedar:   () => buildCedarForest(shared),
+  iron:    () => buildIronTown(shared),
   meadow:  () => buildMeadow(shared),
+  market:  () => buildMarketChipping(shared),
   valley:  () => buildValley(shared),
+  slag:    () => buildSlagRavine(shared),
   laputa:  () => buildLaputa(shared),
 };
 const live = new Map();
@@ -349,6 +355,7 @@ function cineAt(t) {
 
 function goFree() {
   if (state.mode === 'free') return;
+  if (state.mode === 'orbit') rideLabel(false);
   state.mode = 'free';
   state.pos.copy(camera.position);
   const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
@@ -378,8 +385,8 @@ function rideNext() {
 }
 
 const rideEl = document.getElementById('ride');
-function rideLabel(on, text) {
-  rideEl.textContent = text ? text + ' — R to move, F to let go' : '';
+function rideLabel(on, text, tail = 'R to move, F to let go') {
+  rideEl.textContent = text ? text + ' — ' + tail : '';
   rideEl.classList.toggle('show', !!on);
 }
 
@@ -467,6 +474,51 @@ function goCine() {
   frozenQuat.copy(camera.quaternion);
 }
 
+// ===========================================================================
+// Home — the place you decided to stay
+//
+// Fly to somewhere you like, press O, and the camera keeps that spot and
+// circles it: a long slow orbit that rises and falls and never arrives. It is
+// the difference between visiting a country and sitting in it.
+//
+// Home is wherever you were LOOKING, not where you were standing — you point
+// at the thing, and the camera arranges itself around the thing.
+// ===========================================================================
+const orbit = {
+  home: new THREE.Vector3(),
+  radius: 160, height: 60, angle: 0,
+  speed: 0.055,                       // radians a second: one turn in ~2 min
+};
+const homeDir = new THREE.Vector3();
+
+function pickHome(out) {
+  homeDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+  // where the look direction meets the ground, if it ever does; otherwise a
+  // fixed distance out, so pointing at the sky still gives you something
+  let d = 240;
+  if (homeDir.y < -0.02) d = THREE.MathUtils.clamp((camera.position.y - 2) / -homeDir.y, 40, 900);
+  out.copy(camera.position).addScaledVector(homeDir, d);
+  out.y = Math.max(out.y, 2);
+  return d;
+}
+
+function goHome() {
+  if (state.mode === 'orbit') { goFree(); mark(); return; }
+  const d = pickHome(orbit.home);
+  orbit.radius = THREE.MathUtils.clamp(d * 0.85, 45, 620);
+  // it has to fly ABOVE what it is circling, or the path goes through the
+  // roofs of the thing you asked to look at
+  orbit.height = THREE.MathUtils.clamp(
+    Math.max(camera.position.y - orbit.home.y, orbit.radius * 0.42), 22, 300);
+  orbit.angle = Math.atan2(camera.position.z - orbit.home.z, camera.position.x - orbit.home.x);
+  // a big orbit has to turn more slowly or the far side whips past
+  orbit.speed = 0.26 * Math.pow(120 / orbit.radius, 0.6) * ((orbit.home.z | 0) % 2 ? 1 : -1);
+  state.mode = 'orbit';
+  state.vel.set(0, 0, 0);
+  rideLabel(true, 'circling this place', 'O to let go');
+  mark();
+}
+
 // ---- pointer ----
 let dragging = false, lastX = 0, lastY = 0, pointers = new Map();
 const touchMove = { fwd: 0, side: 0, active: false };
@@ -514,6 +566,7 @@ addEventListener('keydown', (e) => {
   if (k === 'h') { helpEl.classList.toggle('hidden'); return; }
   if (k === 'f') { state.mode === 'cine' ? goFree() : goCine(); mark(); return; }
   if (k === 'r') { rideNext(); return; }
+  if (k === 'o') { goHome(); return; }
   if (k === 'p') { togglePaint(); return; }
   if (k === 'm') { toggleSound(); return; }
   const from = destIndex === null ? stopIndex : destIndex;
@@ -660,6 +713,26 @@ function frame() {
     camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, sway, 'YXZ'));
     shared.uLamps.value[2].set(-0.6, 4.5, z + 1.70, 5.5);
     shared.uLampCols.value[2].setRGB(0.130, 0.088, 0.045);
+  } else if (state.mode === 'orbit') {
+    shared.uLamps.value[2].w = 0;
+    orbit.angle += orbit.speed * dt;
+    // the radius and the height breathe on different periods, so the path
+    // never closes on itself and it never looks like a turntable
+    const r = orbit.radius * (1 + Math.sin(clock * 0.041) * 0.16);
+    const h = orbit.height * (1 + Math.sin(clock * 0.027 + 1.3) * 0.30);
+    camera.position.set(
+      orbit.home.x + Math.cos(orbit.angle) * r,
+      Math.max(orbit.home.y + h, 2.2),
+      orbit.home.z + Math.sin(orbit.angle) * r,
+    );
+    tmpMat.lookAt(camera.position, orbit.home, UP);
+    tmpQuat.setFromRotationMatrix(tmpMat);
+    camera.quaternion.copy(tmpQuat);
+    // the faintest roll, so it reads as flight rather than a camera on rails
+    camera.rotateZ(Math.sin(clock * 0.09) * 0.022);
+    state.pos.copy(camera.position);
+    const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+    state.yaw = e.y; state.pitch = e.x;
   } else if (state.mode === 'free') {
     shared.uLamps.value[2].w = 0;
     const sp = (state.keys.has('shift') ? 46 : 15);
@@ -741,13 +814,18 @@ function frame() {
   // cross-faded at the border. On top of that, a point source gets a vicinity:
   // the grove you can hear is the one you are actually standing in.
   const mix = Object.assign({}, atmo.sound);
-  const gz = camera.position.z - INK.shift;
-  const dz = gz > -1400 ? gz + 1400 : (gz < -3900 ? -3900 - gz : 0);
-  const dx = Math.max(0, Math.abs(camera.position.x) - 70);
-  const grove = (1 - THREE.MathUtils.smoothstep(Math.abs(dz), 0, 500))
-              * (1 - THREE.MathUtils.smoothstep(dx, 0, 240));
-  if (mix.leaves) mix.leaves *= 0.25 + 0.75 * grove;
-  if (mix.knock) mix.knock *= grove;
+  // The bamboo is a PLACE inside one region, not a rule for the whole line —
+  // apply its vicinity anywhere and the ink country's silence starts putting
+  // out Iron Town's hammers, which are somebody else's knocks entirely.
+  if (camera.position.z <= INK.zNear + BLEND && camera.position.z >= INK.zFar - BLEND) {
+    const gz = camera.position.z - INK.shift;
+    const dz = gz > -1400 ? gz + 1400 : (gz < -3900 ? -3900 - gz : 0);
+    const dx = Math.max(0, Math.abs(camera.position.x) - 70);
+    const grove = (1 - THREE.MathUtils.smoothstep(Math.abs(dz), 0, 500))
+                * (1 - THREE.MathUtils.smoothstep(dx, 0, 240));
+    if (mix.leaves) mix.leaves *= 0.25 + 0.75 * grove;
+    if (mix.knock) mix.knock *= grove;
+  }
   lastMix = mix;
   sound.update(dt, mix, shared.uWind.value);
 
@@ -808,6 +886,8 @@ addEventListener('resize', () => {
 });
 
 window.__cam = camera;
+window.__scene = scene;   // the camera is not in the graph, so this is the way in
+window.__line = line;     // where the train actually is, when the map disagrees
 // Real GPU time for one frame, via a timer query — a wall-clock loop around
 // render() only measures how fast the commands were *queued*, which on this
 // driver comes back as a number too good to be true.

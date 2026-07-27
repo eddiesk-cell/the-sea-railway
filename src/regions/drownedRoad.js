@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, curvedRoof, hill, mulberry, fillInstances } from '../world/geo.js';
+import { box, curvedRoof, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -31,15 +31,22 @@ export function buildDrownedRoad(shared) {
   // =========================================================================
   // The road: a causeway just under the surface, its markings still showing
   // =========================================================================
-  const ROAD_X = -38;
+  const ROAD_X = -26;
   {
-    const road = new THREE.Mesh(box(11, 0.5, 2300), tarmac);
-    road.position.set(ROAD_X, -0.18, -1200);
+    // just proud of the water, which is the whole image: a road you could
+    // still drive if you did not mind the wheels going under
+    const road = new THREE.Mesh(box(11.6, 0.9, 2300), tarmac);
+    road.position.set(ROAD_X, -0.16, -1200);
     group.add(road);
+    for (const s of [-1, 1]) {
+      const edge = new THREE.Mesh(box(0.42, 0.06, 2300), conc);
+      edge.position.set(ROAD_X + s * 5.3, 0.29, -1200);
+      group.add(edge);
+    }
     // the centre line, gone dim under the water
     const dashes = [];
     for (let i = 0; i < 300; i++) {
-      dashes.push({ pos: [ROAD_X, 0.09, -120 - i * 7.4], scale: [0.34, 1, 3.1] });
+      dashes.push({ pos: [ROAD_X, 0.30, -120 - i * 7.4], scale: [0.34, 1, 3.1] });
     }
     const dash = new THREE.InstancedMesh(box(1, 0.05, 1), conc, dashes.length);
     fillInstances(dash, dashes); dash.frustumCulled = false; group.add(dash);
@@ -97,11 +104,15 @@ export function buildDrownedRoad(shared) {
     transparent: true, opacity: 0.86, depthWrite: true,
   });
 
+  // They run the length of THIS region and no further. A shoal that travels
+  // its own length twice over swims out of Ponyo and into Kiki's harbour,
+  // where a forty-metre fish is not what the picture is about.
+  const RUN = 2200;
   const shoal = [];
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 120; i++) {
     shoal.push({
-      x: -(55 + rnd() * 250), z: -180 - rnd() * 2100,
-      s: 7 + rnd() * 15, ph: rnd() * 6.28, sp: 0.5 + rnd() * 0.7,
+      x: -(50 + rnd() * 230), z0: rnd() * RUN,
+      s: 4.0 + rnd() * 6.5, ph: rnd() * 6.28, sp: 0.5 + rnd() * 0.7,
       lane: rnd() * 6.28,
     });
   }
@@ -134,19 +145,57 @@ export function buildDrownedRoad(shared) {
       return best;
     };
 
+    // Trees, before anything else. A bare green dome half a kilometre off
+    // reads as a painted backdrop no matter how many houses you put on it —
+    // it is the broken edge of a canopy that tells the eye it is land.
+    {
+      const clump = (() => {
+        const parts = [];
+        for (let i = 0; i < 4; i++) {
+          const g = new THREE.IcosahedronGeometry(1, 0);
+          const p = g.attributes.position;
+          for (let v = 0; v < p.count; v++) {
+            const n = 0.72 + ((v * 13 + i * 29) % 17) / 30;
+            p.setXYZ(v, p.getX(v) * n, p.getY(v) * n * 0.86, p.getZ(v) * n);
+          }
+          g.computeVertexNormals();
+          const s = 0.5 + (i % 3) * 0.16;
+          g.scale(s, s, s);
+          g.translate((i - 1.5) * 0.42, 0.34 + (i % 2) * 0.3, ((i * 5) % 3 - 1) * 0.38);
+          parts.push(g);
+        }
+        return mergePN(parts);
+      })();
+      const dark = makePaintMaterial(shared, { color: '#3d6a33', shadowTint: '#12261c', rim: 0.5, bands: 3, grain: 0.24, grainScale: 0.35, sway: 0.02, translucency: 0.5 });
+      const items = [];
+      for (let i = 0; i < 2600; i++) {
+        const H = HILLS[(rnd() * HILLS.length) | 0];
+        const a = rnd() * Math.PI * 2, dd = Math.pow(rnd(), 0.55) * H[2] * 0.98;
+        const x = H[0] + Math.cos(a) * dd, z = H[1] + Math.sin(a) * dd;
+        const y = groundAt(x, z);
+        if (y < 0.5) continue;
+        const s = 5 + rnd() * 9;
+        items.push({ pos: [x, y - 1, z], rot: [0, rnd() * 6.28, 0], scale: [s, s * (0.9 + rnd() * 0.7), s] });
+      }
+      const m = new THREE.InstancedMesh(clump, dark, items.length);
+      fillInstances(m, items); m.frustumCulled = false; group.add(m);
+    }
+
     const houses = [], roofsR = [], roofsB = [];
-    for (let i = 0; i < 130; i++) {
+    for (let i = 0; i < 320; i++) {
       const H = HILLS[(rnd() * HILLS.length) | 0];
-      const a = rnd() * Math.PI * 2, dd = Math.pow(rnd(), 0.5) * H[2] * 0.80;
+      const a = rnd() * Math.PI * 2, dd = Math.pow(rnd(), 0.42) * H[2] * 0.92;
       const x = H[0] + Math.cos(a) * dd;
       const z = H[1] + Math.sin(a) * dd;
       const y = groundAt(x, z) - 1.5;
-      if (y < 1) continue;
-      const w = 7 + rnd() * 6, h = 5 + rnd() * 5, dp = 6 + rnd() * 5;
+      if (y < 0.4) continue;
+      // half a kilometre out, a seven-metre cottage is one pixel. The town has
+      // to be built at the size it will be SEEN at, not the size it would be.
+      const w = 13 + rnd() * 11, h = 9 + rnd() * 8, dp = 11 + rnd() * 10;
       const ry = rnd() * 0.7 - 0.35;
       houses.push({ pos: [x, y + h / 2, z], rot: [0, ry, 0], scale: [w, h, dp] });
       (rnd() > 0.4 ? roofsR : roofsB).push({
-        pos: [x, y + h + 1.4, z], rot: [0, ry, 0], scale: [(w + 2.2) / 12, 3.0 / 3, (dp + 2.2) / 12],
+        pos: [x, y + h + 1.9, z], rot: [0, ry, 0], scale: [(w + 3.6) / 12, 4.4 / 3, (dp + 3.6) / 12],
       });
     }
     const hm = new THREE.InstancedMesh(box(1, 1, 1), wall, houses.length);
@@ -185,12 +234,13 @@ export function buildDrownedRoad(shared) {
 
   function update(t) {
     shoal.forEach((f, i) => {
-      // they run up the coast, rise and fall through the surface, and roll
-      const z = f.z + ((t * 26 * f.sp) % 2400);
-      const y = Math.sin(t * 0.8 * f.sp + f.ph) * 3.4 + 1.2;
+      // they run up the coast, rise and fall THROUGH the surface, and roll —
+      // mostly under it, so what you see is a back breaking a wave
+      const z = -120 - ((f.z0 + t * 26 * f.sp) % RUN);
+      const y = Math.sin(t * 0.8 * f.sp + f.ph) * 2.5 - 1.3;
       const roll = Math.sin(t * 1.4 + f.ph) * 0.28;
       const yaw = Math.sin(t * 0.31 + f.lane) * 0.22;
-      pv.set(f.x + Math.sin(t * 0.24 + f.lane) * 26, y, z - 2400);
+      pv.set(f.x + Math.sin(t * 0.24 + f.lane) * 26, y, z);
       e.set(Math.sin(t * 0.9 + f.ph) * 0.14, yaw, roll);
       q.setFromEuler(e);
       sv.set(f.s, f.s, f.s);
@@ -213,20 +263,4 @@ export function buildDrownedRoad(shared) {
   update(0);
 
   return { group, update };
-}
-
-function mergePN(list) {
-  let vc = 0;
-  const parts = list.map(g => { const s = g.toNonIndexed(); vc += s.attributes.position.count; g.dispose(); return s; });
-  const pos = new Float32Array(vc * 3), nrm = new Float32Array(vc * 3);
-  let o = 0;
-  parts.forEach(g => {
-    pos.set(g.attributes.position.array, o * 3);
-    nrm.set(g.attributes.normal.array, o * 3);
-    o += g.attributes.position.count; g.dispose();
-  });
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-  return out;
 }

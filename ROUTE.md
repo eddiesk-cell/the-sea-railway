@@ -21,8 +21,11 @@ in each region are original silhouettes. The tribute is to the landscapes.
 | 8 | **The Bus Stop** — rice paddies at night, hard rain, one lamp, the camphor | My Neighbour Totoro | 1988 | ✅ live |
 | 15 | **The Ink Country** — Huangshan in slabs, a sea of cloud, cliff pines, bamboo | The Tale of the Princess Kaguya | 2013 | ✅ live |
 | 16 | **The Cedar Forest** — columns, a river over stones, lights among the trunks | Princess Mononoke | 1997 | ✅ live |
+| 17 | **Iron Town** — a walled works on a lake, and a hill it has eaten | Princess Mononoke | 1997 | ✅ live |
 | 18 | **The Meadow** — alpine flowers, and something walking the skyline | Howl's Moving Castle | 2004 | ✅ live |
+| 19 | **Market Chipping** — a hill town of tall leaning houses, bunting, a tram | Howl's Moving Castle | 2004 | ✅ live |
 | 22 | **The Valley of the Wind** — windmills, ochre dust, a forest lit from inside | Nausicaä | 1984 | ✅ live |
+| 23 | **Slag Ravine** — a mining town in terraces, a viaduct over the roofs | Castle in the Sky | 1986 | ✅ live |
 | 24 | **Laputa** — the island, its root, and the vines hanging off it | Castle in the Sky | 1986 | ✅ live |
 
 **Sound.** Every region declares its own soundscape and those levels cross-fade
@@ -43,7 +46,13 @@ haze turns white instead of blue, and a vermilion seal appears in the corner.
 stops, of which the filled ones are laid. **N** takes the train to the next one
 and **B** to the last; clicking a lit stop goes straight there. The train runs
 the line on its own if you leave it alone, and turns back to the beginning when
-it reaches the end of what is built.
+it reaches the end of what is built, so **R** and nothing else is a journey that
+never finishes.
+
+**Staying.** Fly to somewhere you like, point at it, and press **O**. That spot
+becomes home and the camera circles it — a long slow orbit that rises and falls
+and never arrives. It keeps going until you take the controls back. It is the
+difference between visiting a country and sitting in it.
 
 ## The line, in order of the ride
 
@@ -153,7 +162,12 @@ It needs almost nothing new in the world and everything new in the finish:
    along the bottom, stop-to-stop travel, and a free camera no longer leashed
    to the first region. Rain is a region property now, so any later region can
    ask for weather.
-5. **Regions 22, 18** — the valley of the wind, the meadow.
-6. **Regions 5, 24, 16** — Koriko, Laputa, the cedar forest.
+5. ✅ **Six more countries** — Ponyo, Koriko, Mononoke's forest, Howl's meadow,
+   Nausicaä's valley, Laputa — and a soundscape for each, cross-fading at the
+   border exactly like the sky does.
+6. ✅ **Both halves of the three double films** — Iron Town beside the cedar
+   forest, Market Chipping below the meadow, Slag Ravine under Laputa. Every
+   film that earns two stops now has both of them. Plus **home** (**O**): pick a
+   place and the camera circles it for as long as you leave it alone.
 7. **Stops.** Platforms, stepping off, a whistle that brings the train back.
 8. **The rest**, and the loop back to the beginning.

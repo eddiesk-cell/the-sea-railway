@@ -33,7 +33,8 @@ npm run build && cp dist/index.html "The Sea Railway.html"
 | Move | W A S D |
 | Rise / sink | space / C |
 | Glide faster | shift |
-| Ride the train | R |
+| Ride the train (it never stops) | R |
+| Circle this place, and stay | O |
 | Next stop up the line | N |
 | Back one stop | B |
 | Let go, back to the cinematic | F |
@@ -43,6 +44,11 @@ npm run build && cp dist/index.html "The Sea Railway.html"
 
 Leave it alone for sixteen seconds and it takes the camera back, on a slow
 four-minute pass through the world.
+
+Two ways to just *be* somewhere. **R** puts you in a window seat on a train that
+runs the whole line by itself and turns round at the end, so it never finishes.
+**O** takes wherever you are pointing, makes it home, and circles it — rising,
+falling, never arriving — until you touch the controls again.
 
 ## What makes it look painted
 

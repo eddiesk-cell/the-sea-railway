@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -26,8 +26,10 @@ export function buildValley(shared) {
   const canvasM = makePaintMaterial(shared, { color: '#ddd2b6', shadowTint: '#5c5346', rim: 1.0, bands: 3, grain: 0.14, side: THREE.DoubleSide });
   const stoneM = makePaintMaterial(shared, { color: '#948a72', shadowTint: '#3a352e', rim: 0.6, bands: 3, grain: 0.22 });
   const sporeM = makePaintMaterial(shared, { color: '#b9c6cf', shadowTint: '#4e5a68', rim: 1.2, bands: 3, grain: 0.16 });
-  const capM = makePaintMaterial(shared, { color: '#a4b6c6', shadowTint: '#414f62', rim: 1.4, bands: 3, grain: 0.14,
-    emissive: '#7fd8e8', emissiveStrength: 0.28 });
+  // pale, not blue. At a quarter strength of cyan the caps stop being fungus
+  // and become a field of parasols hanging in the air over their own stalks.
+  const capM = makePaintMaterial(shared, { color: '#bfc6c4', shadowTint: '#4a5257', rim: 1.4, bands: 3, grain: 0.14,
+    emissive: '#a9dbe0', emissiveStrength: 0.13 });
 
   // =========================================================================
   // The plain
@@ -69,11 +71,11 @@ export function buildValley(shared) {
       return mergePN(parts);
     })();
     const items = [];
-    for (let i = 0; i < 24000; i++) {
+    for (let i = 0; i < 38000; i++) {
       const side = rnd() > 0.5 ? 1 : -1;
-      const s = 0.9 + rnd() * 1.5;
+      const s = 0.9 + rnd() * 1.6;
       items.push({
-        pos: [side * (15 + Math.pow(rnd(), 0.7) * 420), 1.5, -120 - rnd() * 2900],
+        pos: [side * (15 + Math.pow(rnd(), 1.3) * 300), 1.5, -120 - rnd() * 2900],
         rot: [0, rnd() * 6.28, 0], scale: [s, s * (0.7 + rnd() * 0.7), s],
       });
     }
@@ -141,14 +143,24 @@ export function buildValley(shared) {
   // The forest edge: pale, soft, and lit from inside
   // =========================================================================
   {
+    // A forest, not a row of lollipops: they have to overlap, and the sizes
+    // have to run from waist-high to enormous. Evenly spaced identical caps
+    // read as a fence — the mass is what makes it somewhere you cannot go.
     const stalks = [], caps = [];
-    for (let i = 0; i < 260; i++) {
+    for (let i = 0; i < 1500; i++) {
       const side = rnd() > 0.5 ? 1 : -1;
-      const x = side * (420 + rnd() * 420);
-      const z = -400 - rnd() * 2500;
-      const h = 16 + rnd() * 30;
-      stalks.push({ pos: [x, 1.4 + h / 2, z], rot: [0, rnd() * 6.28, 0], scale: [h * 0.10, h, h * 0.10] });
-      caps.push({ pos: [x, 1.4 + h, z], rot: [(rnd() - 0.5) * 0.2, rnd() * 6.28, (rnd() - 0.5) * 0.2], scale: [h * 0.46, h * 0.24, h * 0.46] });
+      // packed hard at the edge and thinning outward, which is what a
+      // treeline does and what tells you where the valley stops
+      const x = side * (330 + Math.pow(rnd(), 2.2) * 900);
+      const z = -260 - rnd() * 2800;
+      const big = rnd();
+      const h = big > 0.94 ? 46 + rnd() * 44 : 7 + Math.pow(rnd(), 1.6) * 34;
+      stalks.push({ pos: [x, 1.4 + h / 2, z], rot: [0, rnd() * 6.28, 0], scale: [h * 0.135, h, h * 0.135] });
+      caps.push({
+        pos: [x, 1.4 + h, z],
+        rot: [(rnd() - 0.5) * 0.26, rnd() * 6.28, (rnd() - 0.5) * 0.26],
+        scale: [h * (0.38 + rnd() * 0.26), h * (0.18 + rnd() * 0.16), h * (0.38 + rnd() * 0.26)],
+      });
     }
     const sm = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1.4, 1, 6), sporeM, stalks.length);
     fillInstances(sm, stalks); sm.frustumCulled = false; group.add(sm);
@@ -191,20 +203,4 @@ export function buildValley(shared) {
   update(0);
 
   return { group, update };
-}
-
-function mergePN(list) {
-  let vc = 0;
-  const parts = list.map(g => { const s = g.index ? g.toNonIndexed() : g; vc += s.attributes.position.count; if (s !== g) g.dispose(); return s; });
-  const pos = new Float32Array(vc * 3), nrm = new Float32Array(vc * 3);
-  let o = 0;
-  parts.forEach(g => {
-    pos.set(g.attributes.position.array, o * 3);
-    nrm.set(g.attributes.normal.array, o * 3);
-    o += g.attributes.position.count; g.dispose();
-  });
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-  return out;
 }

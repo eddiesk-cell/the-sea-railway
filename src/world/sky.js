@@ -62,8 +62,12 @@ export function samplePalette(h) {
 
 // The sun sits low and just left of the bathhouse, so the bathhouse reads as a
 // warm silhouette with a rim, and its own lanterns do the rest.
+// Which way the sun is, not just how high. This was a constant for a long
+// while, which quietly decided that every region was lit from ahead-left —
+// so anything the window seat looks at (the -x side) came back a silhouette.
+// A region that wants its subject lit rather than outlined says so.
 export function sunDirection(p) {
-  const az = -2.72;
+  const az = p.az ?? -2.72;
   return new THREE.Vector3(Math.sin(az), p.sunY, Math.cos(az)).normalize();
 }
 

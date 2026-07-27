@@ -30,7 +30,7 @@ export function buildInkCountry(shared) {
   // Values, not colours. The ink conversion reads luminance, so what these
   // materials really set is how dark a brush loads for each rank.
   const rock = [
-    makePaintMaterial(shared, { color: '#2e3646', shadowTint: '#0b0e16', rim: 0.30, bands: 3, grain: 0.42, grainScale: 0.16, inkBias: 0.34 }),
+    makePaintMaterial(shared, { color: '#1c2230', shadowTint: '#05070c', rim: 0.30, bands: 3, grain: 0.42, grainScale: 0.16, inkBias: 0.48 }),
     makePaintMaterial(shared, { color: '#4a5364', shadowTint: '#191d27', rim: 0.28, bands: 3, grain: 0.32, grainScale: 0.14, inkBias: 0.15 }),
     makePaintMaterial(shared, { color: '#6e7684', shadowTint: '#2e333d', rim: 0.24, bands: 2, grain: 0.14, grainScale: 0.20, inkBias: -0.04 }),
     makePaintMaterial(shared, { color: '#949aa4', shadowTint: '#4c515a', rim: 0.20, bands: 2, grain: 0.10, grainScale: 0.16, inkBias: -0.22 }),
@@ -47,6 +47,14 @@ export function buildInkCountry(shared) {
   // The ranks
   // =========================================================================
   const RANKS = [
+    // A shui-mo scroll has THREE planes, and the one that carries the black is
+    // the nearest: a small dark crag with pines on it, close enough to be cut
+    // off by the frame. Without it the whole picture is middle distance, and
+    // the ink never gets darker than grey. It is short on purpose — height is
+    // what would turn it into a wall, and it is the CLOSENESS that makes the
+    // pigment read as pigment rather than haze.
+    { n: 11, xMin: 200,  xMax: 430,  h: [70, 155],  r: [15, 34],   mat: 0, pines: true, near: true,
+      base: [-30, 36], zMin: -300, zSpan: 3400 },
     // A five-hundred-metre peak has to stand a kilometre off before you can
     // see the top of it through a train window. Put the near rank any closer
     // and it stops being a mountain and becomes a wall across the glass.
@@ -61,14 +69,16 @@ export function buildInkCountry(shared) {
     for (let i = 0; i < band.n; i++) {
       const side = rnd() > 0.5 ? 1 : -1;
       const x = side * (band.xMin + rnd() * (band.xMax - band.xMin));
-      const z = -900 - rnd() * 3600;
+      const z = (band.zMin ?? -900) - rnd() * (band.zSpan ?? 3600);
       const h = band.h[0] + rnd() * (band.h[1] - band.h[0]);
       const r = band.r[0] + rnd() * (band.r[1] - band.r[0]);
       const m = new THREE.Mesh(karstPeak(r, h, 40 + bi * 31 + i, {
-        rings: bi === 0 ? 20 : 13, sectors: bi === 0 ? 11 : 8,
+        rings: bi < 2 ? 20 : 13, sectors: bi < 2 ? 11 : 8,
       }), rock[band.mat]);
       // the feet go well below the world: nothing ever shows where a peak ends
-      const base = -150 - rnd() * 90;
+      const base = band.base
+        ? band.base[0] - rnd() * band.base[1]
+        : -150 - rnd() * 90;
       m.position.set(x, base, z);
       m.rotation.y = rnd() * Math.PI * 2;
       group.add(m);

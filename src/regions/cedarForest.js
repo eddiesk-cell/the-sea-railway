@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, mulberry, fillInstances } from '../world/geo.js';
+import { box, mulberry, fillInstances, mergePN } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -178,20 +178,4 @@ export function buildCedarForest(shared) {
   update(0);
 
   return { group, update };
-}
-
-function mergePN(list) {
-  let vc = 0;
-  const parts = list.map(g => { const s = g.index ? g.toNonIndexed() : g; vc += s.attributes.position.count; if (s !== g) g.dispose(); return s; });
-  const pos = new Float32Array(vc * 3), nrm = new Float32Array(vc * 3);
-  let o = 0;
-  parts.forEach(g => {
-    pos.set(g.attributes.position.array, o * 3);
-    nrm.set(g.attributes.normal.array, o * 3);
-    o += g.attributes.position.count; g.dispose();
-  });
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-  return out;
 }
