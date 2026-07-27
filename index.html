@@ -49,6 +49,17 @@
     text-shadow:0 1px 10px rgba(0,0,0,.9); white-space:nowrap; color:#f0c98a;
   }
   #ride.show { opacity:.72; }
+
+  #seal {
+    position:absolute; right:clamp(18px,3vw,44px); bottom:clamp(18px,4vh,46px);
+    width:clamp(38px,4.2vw,58px); height:clamp(38px,4.2vw,58px);
+    opacity:0; transform:rotate(-2deg) scale(.9); transition:opacity 1.6s ease, transform 1.6s ease;
+    filter: drop-shadow(0 1px 2px rgba(90,20,10,.25));
+  }
+  #seal.show { opacity:.86; transform:rotate(-2deg) scale(1); }
+  #seal svg { width:100%; height:100%; }
+  #seal rect { fill:#b8322a; }
+  #seal .mark path { stroke:#efe5d2; stroke-width:6.5; fill:none; stroke-linecap:square; }
   #hint b { font-weight:600; color:#f0c98a; letter-spacing:.14em; }
 
   /* ---- help panel ---- */
@@ -132,6 +143,17 @@
     </div>
 
     <div id="ride"></div>
+
+    <!-- the artist's seal: the only colour in the ink region, and it sits on
+         the paper rather than in the world, which is where a seal belongs -->
+    <div id="seal" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <rect x="2" y="2" width="96" height="96" rx="6"/>
+        <g class="mark">
+          <path d="M22 24 H78 M50 24 V50 M30 38 H70 M22 62 H78 M34 62 V80 M66 62 V80 M34 80 H66"/>
+        </g>
+      </svg>
+    </div>
 
     <div id="hint"><b>drag</b> to look &nbsp;·&nbsp; <b>W A S D</b> to walk &nbsp;·&nbsp; <b>R</b> to ride the train &nbsp;·&nbsp; <b>H</b> for controls</div>
 

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { createSky, samplePalette, sunDirection } from './world/sky.js';
+import { createSky } from './world/sky.js';
+import { atmosphereAt } from './regions/index.js';
+import { buildInkCountry } from './regions/inkCountry.js';
 import { createWater } from './world/water.js';
 import { createBathhouse } from './world/bathhouse.js';
 import { createRailway, createTrain } from './world/railway.js';
@@ -36,6 +38,11 @@ const shared = {
   uHorizon:    { value: new THREE.Vector3() },
   uSunTint:    { value: new THREE.Vector3() },
   uCloudAmt:   { value: 0.84 },
+  uInk:        { value: 0 },
+  uPaper:      { value: new THREE.Color('#ece5d5').convertSRGBToLinear() },
+  uInkTone:    { value: new THREE.Color('#12141c').convertSRGBToLinear() },
+  uMist:       { value: 0 },
+  uMistTop:    { value: 40 },
   uFogColor:   { value: new THREE.Vector3(0.5, 0.5, 0.55) },
   uFogDensity: { value: 0.00045 },
   uCamPos:     { value: new THREE.Vector3() },
@@ -84,16 +91,20 @@ scene.add(reeds.mesh);
 const grass = createGrass(shared, { count: 1_600_000 });
 scene.add(grass.mesh);
 
+// --- the next region up the line ---
+const ink = buildInkCountry(shared);
+scene.add(ink.group);
+
 // --- far country: headlands stacked into the haze ---
 {
   const far = makePaintMaterial(shared, { color: '#39482a', shadowTint: '#16241a', rim: 0.55, bands: 2, grain: 0.1 });
   const far2 = makePaintMaterial(shared, { color: '#43512f', shadowTint: '#1a281c', rim: 0.6, bands: 2, grain: 0.1 });
   // low headlands, a long way out — the plain has to read as endless
   const ridges = [
-    [-1420, -2600, 430,  62, far],
-    [  640, -3050, 520,  74, far2],
-    [ 2350, -2350, 360,  46, far],
-    [-2950, -1750, 400,  54, far2],
+    [-1560,  -820, 430,  62, far],
+    [  980, -1020, 520,  74, far2],
+    [ 2350,  -160, 360,  46, far],
+    [-2950,   240, 400,  54, far2],
   ];
   ridges.forEach(([x, z, r, h, m], i) => {
     const mesh = new THREE.Mesh(hill(r, h, 30 + i, { rough: 0.5, rings: 14, sectors: 22 }), m);
@@ -155,30 +166,62 @@ const post = createPost(renderer, scene, camera);
 // ===========================================================================
 // Time of day
 // ===========================================================================
-const fogV = new THREE.Vector3();
-function applyHour(h) {
-  const p = samplePalette(h);
-  shared.uHour.value = h;
-  shared.uZenith.value.copy(p.zenith);
-  shared.uMidSky.value.copy(p.mid);
-  shared.uHorizon.value.copy(p.horizon);
-  shared.uSunTint.value.copy(p.sun);
-  shared.uCloudAmt.value = p.cloud;
-  shared.uSunDir.value.copy(sunDirection(p));
-  fogV.copy(p.fog);
-  shared.uFogColor.value.copy(fogV);
-  water.uniforms.uFogColor.value.copy(fogV);
-  grass.uniforms.uFogColor.value.copy(fogV);
-  post.kuwahara.uniforms.uExposure.value = p.exposure;
+let hour = 0.44;
+let currentRegion = null;
+const coolA = new THREE.Color(0x2a3d63), coolB = new THREE.Color(0x38507c);
 
-  // the world's few real lamps get brighter as the light goes
-  const night = 1 - THREE.MathUtils.smoothstep(h, 0.15, 0.85);
-  shared.uLamps.value[0].set(rail.lampWorld.x, rail.lampWorld.y, rail.lampWorld.z, 16);
+function applyAtmosphere(z) {
+  const a = atmosphereAt(z, hour);
+
+  shared.uHour.value = hour;
+  shared.uZenith.value.copy(a.zenith);
+  shared.uMidSky.value.copy(a.mid);
+  shared.uHorizon.value.copy(a.horizon);
+  shared.uSunTint.value.copy(a.sun);
+  shared.uCloudAmt.value = a.cloud;
+  shared.uSunDir.value.copy(a.sunDir);
+  shared.uFogColor.value.copy(a.fog);
+  shared.uFogDensity.value = a.fogDensity;
+  shared.uInk.value = a.ink;
+  shared.uPaper.value.copy(a.paper);
+  shared.uInkTone.value.copy(a.inkTone);
+  shared.uMist.value = a.mist;
+  shared.uMistTop.value = a.mistTop;
+  water.uniforms.uFogColor.value.copy(a.fog);
+  grass.uniforms.uFogColor.value.copy(a.fog);
+
+  post.kuwahara.uniforms.uExposure.value = a.exposure;
+  post.finish.uniforms.uInkMode.value = a.ink;
+  post.finish.uniforms.uPaper.value.copy(a.paper);
+  post.finish.uniforms.uVignette.value = a.vignette;
+
+  // lamps only mean anything where there are lamps
+  const night = (1 - THREE.MathUtils.smoothstep(hour, 0.15, 0.85)) * (1 - a.ink);
+  shared.uLamps.value[0].set(rail.lampWorld.x, rail.lampWorld.y, rail.lampWorld.z, 16 * (1 - a.ink));
   shared.uLampCols.value[0].setRGB(0.26, 0.155, 0.062).multiplyScalar(0.55 + night * 1.1);
 
-  post.bloom.strength = 0.30 + night * 0.34;
-  post.finish.uniforms.uCool.value.setHex(0x2a3d63).lerp(new THREE.Color(0x38507c), 1 - night);
-  post.finish.uniforms.uSat.value = 1.08 + night * 0.13;
+  post.bloom.strength = (0.30 + night * 0.34) * a.bloom;
+  post.finish.uniforms.uCool.value.copy(coolA).lerp(coolB, 1 - night);
+  post.finish.uniforms.uSat.value = (1.08 + night * 0.13) * a.sat;
+
+  if (a.region !== currentRegion) { currentRegion = a.region; showRegion(a.region); }
+  seal.classList.toggle('show', a.ink > 0.55);
+}
+
+// the title card changes as the line changes
+const sealEl = () => document.getElementById('seal');
+const seal = sealEl();
+const titleH = document.querySelector('#title h1');
+const titleP = document.querySelector('#title p');
+function showRegion(r) {
+  titleEl.style.opacity = '0';
+  setTimeout(() => {
+    titleH.textContent = r.title;
+    titleP.textContent = r.film + ' · ' + r.year;
+    titleEl.style.opacity = '1';
+    clearTimeout(showRegion._t);
+    showRegion._t = setTimeout(() => { titleEl.style.opacity = '0'; }, 9000);
+  }, 700);
 }
 
 // ===========================================================================
@@ -363,9 +406,8 @@ const timeSlider = document.getElementById('s-time');
 const timeLabel = document.getElementById('v-time');
 const NAMES = [[0.13, 'night'], [0.27, 'late blue'], [0.39, 'blue hour'], [0.72, 'dusk'], [0.90, 'evening'], [1.01, 'afternoon']];
 function setHourFromSlider() {
-  const h = timeSlider.value / 100;
-  applyHour(h);
-  timeLabel.textContent = (NAMES.find(n => h < n[0]) || NAMES[NAMES.length - 1])[1];
+  hour = timeSlider.value / 100;
+  timeLabel.textContent = (NAMES.find(n => hour < n[0]) || NAMES[NAMES.length - 1])[1];
 }
 timeSlider.addEventListener('input', setHourFromSlider);
 
@@ -389,9 +431,9 @@ let clock = 0;
 const fwd = new THREE.Vector3(), right = new THREE.Vector3();
 const trainHead = new THREE.Vector3();
 
-applyHour(0.62);
 setHourFromSlider();
 setGrassFromSlider();
+applyAtmosphere(0);
 
 function frame() {
   requestAnimationFrame(frame);
@@ -454,6 +496,8 @@ function frame() {
     }
   }
 
+  applyAtmosphere(camera.position.z);
+
   shared.uCamPos.value.copy(camera.position);
   water.uniforms.uCamPos.value.copy(camera.position);
   grass.uniforms.uCamXZ.value.set(camera.position.x, camera.position.z);
@@ -468,8 +512,8 @@ function frame() {
   sky.uniforms.uCloudAmt.value = shared.uCloudAmt.value;
 
   // ---- the train: always running, always somewhere on the line ----
-  const LOOP = 4600, SPEED = 30;
-  const z = 2300 - ((clock * SPEED) % LOOP);
+  const LOOP = 5500, SPEED = 34;
+  const z = 1000 - ((clock * SPEED) % LOOP);
   train.group.visible = true;
   train.group.position.set(0, 0, z);
   trainHead.set(0, 3.4, z - 9);
@@ -479,6 +523,7 @@ function frame() {
   shared.uLampCols.value[1].setRGB(0.26, 0.20, 0.12);
   window.__trainZ = z;
 
+  ink.update(clock);
   spirits.update(clock);
   lanterns.update(clock);
   steam.update(clock);

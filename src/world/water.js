@@ -117,9 +117,19 @@ export function createWater(sharedUniforms) {
         col *= 1.0 - bank * 0.24;
         col += vec3(0.9, 0.72, 0.5) * bank * 0.018 * (0.6 + 0.4 * sin(P.z * 1.7 + uTime * 1.4));
 
+        // ---- brush and water: still water is a few horizontal strokes ----
+        if (uInk > 0.001){
+          float l = clamp(dot(col, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+          float strokes = fbm(vec2(P.x * 0.035, P.z * 0.55) + uTime * 0.03);
+          float d = clamp(0.10 + smoothstep(0.44, 0.62, strokes) * 0.16 + (1.0 - l) * 0.30, 0.0, 1.0);
+          d = floor(d * 5.0 + 0.5) / 5.0;
+          col = mix(col, mix(uPaper, uInkTone, d), uInk);
+        }
+
         // ---- into the haze ----
         float fogA = 1.0 - exp(-pow(dist * uFogDensity, 1.34) * 1.9);
-        col = mix(col, uFogColor, clamp(fogA, 0.0, 1.0));
+        fogA = clamp(fogA + mistAt(P.y, dist) * (1.0 - fogA), 0.0, 1.0);
+        col = mix(col, uFogColor, fogA);
 
         gl_FragColor = vec4(col, 1.0);
       }`,

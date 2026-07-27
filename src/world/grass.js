@@ -220,9 +220,13 @@ export function createGrass(shared, opts = {}) {
         vec3 ambient = mix(uHorizon * 0.55, uZenith * 1.5 + uMidSky * 0.6, up);
         col += base * ambient * 0.85 + ambient * 0.02;
 
+        // ---- brush and water ----
+        if (uInk > 0.001) col = mix(col, inkWash(col, N, V, -0.06), uInk);
+
         // ---- haze ----
         float fogA = 1.0 - exp(-pow(dist * uFogDensity, 1.34) * 1.9);
-        col = mix(col, uFogColor, clamp(fogA, 0.0, 1.0));
+        fogA = clamp(fogA + mistAt(vWorld.y, dist) * (1.0 - fogA), 0.0, 1.0);
+        col = mix(col, uFogColor, fogA);
 
         gl_FragColor = vec4(col, 1.0);
       }`,

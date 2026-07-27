@@ -50,6 +50,33 @@ uniform vec3  uMidSky;
 uniform vec3  uHorizon;
 uniform vec3  uSunTint;
 uniform float uCloudAmt;
+uniform float uInk;        // 0 = paint, 1 = brush and water
+uniform vec3  uPaper;      // the colour of the unpainted ground
+uniform vec3  uInkTone;    // the colour of a full-loaded brush
+uniform float uMist;       // low-lying mist: how much of it
+uniform float uMistTop;    // and how high it lies
+
+// Mist eats the bottom of things. In a shui-mo landscape it is the whole
+// reason a mountain reads as far away rather than as tall.
+float mistAt(float worldY, float dist){
+  if (uMist <= 0.001) return 0.0;
+  return uMist
+       * smoothstep(uMistTop, uMistTop - 40.0, worldY)
+       * smoothstep(40.0, 320.0, dist);
+}
+
+float lumaOf(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+// A surface converted to ink: a few values, never a gradient, and darker
+// wherever it turns away from you — which is where a brush would linger.
+vec3 inkWash(vec3 c, vec3 N, vec3 V, float bias){
+  float l = lumaOf(c);
+  float turn = pow(1.0 - abs(dot(N, V)), 1.6);
+  float d = clamp(1.0 - l * 1.45 + turn * 0.44 + bias, 0.0, 1.0);
+  d = pow(d, 1.22);
+  d = floor(d * 5.0 + 0.5) / 5.0;
+  return mix(uPaper, uInkTone, d);
+}
 
 // big soft cumulus banks, painted flat with a lit rim
 float cloudField(vec3 dir, float t){
@@ -118,6 +145,15 @@ vec3 skyColor(vec3 dir, float t){
     vec3 bright = mix(uHorizon * 1.06, uSunTint * 1.4 + uHorizon * 0.55, lit);
     vec3 cloud = mix(shade, bright, lit * 0.72 + hb * 0.4);
     col = mix(col, cloud, clamp(c, 0.0, 0.94));
+  }
+
+  // ---- paper: no sky at all, just the ground the brush never touched ----
+  if (uInk > 0.001){
+    vec2 sp = dir.xz / max(abs(dir.y), 0.10);
+    float stain = fbm(sp * 0.16 + 3.7);
+    vec3 paper = uPaper * (0.975 + stain * 0.055);
+    paper *= 1.0 - smoothstep(0.10, 0.95, dir.y) * 0.045;
+    col = mix(col, paper, uInk);
   }
 
   // ---- a scatter of stars once the light goes ----

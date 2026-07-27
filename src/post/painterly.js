@@ -122,6 +122,8 @@ const FINISH = {
     uWarm:     { value: new THREE.Color('#ffd7a8') },
     uCool:     { value: new THREE.Color('#2a3d63') },
     uPaint:    { value: 1.0 },
+    uInkMode:  { value: 0.0 },
+    uPaper:    { value: new THREE.Color('#efe8d9') },
     uTime:     { value: 0 },
   },
   vertexShader: FS_VERT,
@@ -130,8 +132,8 @@ const FINISH = {
     uniform sampler2D tDiffuse;
     uniform sampler2D tDepth;
     uniform vec2  uTexel;
-    uniform float uNear, uFar, uInk, uPosterize, uGrain, uVignette, uSat, uPaint, uTime;
-    uniform vec3  uWarm, uCool;
+    uniform float uNear, uFar, uInk, uPosterize, uGrain, uVignette, uSat, uPaint, uTime, uInkMode;
+    uniform vec3  uWarm, uCool, uPaper;
     varying vec2 vUv;
 
     float h21(vec2 p){
@@ -187,6 +189,17 @@ const FINISH = {
         // never outline light itself — lanterns must not get boxed in
         ink *= 1.0 - smoothstep(0.26, 0.62, l0) * 0.97;
         col *= 1.0 - clamp(ink, 0.0, 0.72) * 0.55;
+
+        if (uInkMode > 0.001){
+          // A brush line is not a hairline. It swells where the hand slowed,
+          // breaks where the brush ran dry, and bleeds into the paper's grain.
+          float wet = smoothstep(0.016, 0.20, dEdge) * 1.35
+                    + smoothstep(0.10, 0.42, lEdge) * 0.55;
+          float dry = 0.45 + 0.75 * fbm2(uv * vec2(300.0, 120.0) + 9.0);
+          float bleed = smoothstep(0.010, 0.14, dEdge) * 0.5 * fbm2(uv * 55.0);
+          float line = clamp((wet * dry + bleed) * uInkMode, 0.0, 1.0);
+          col = mix(col, mix(col, uPaper * 0.055, 0.92), line);
+        }
       }
 
       // ---- grade: shadows lean cool, lights lean warm, exposure held ----
@@ -194,7 +207,17 @@ const FINISH = {
       col = mix(vec3(l), col, uSat);
       vec3 tone = mix(uCool, uWarm, smoothstep(0.05, 0.70, l));
       tone /= max((tone.r + tone.g + tone.b) / 3.0, 1e-3);
-      col *= mix(vec3(1.0), tone, 0.28);
+      col *= mix(vec3(1.0), tone, 0.28 * (1.0 - uInkMode));
+
+      if (uInkMode > 0.001){
+        // one pigment, so the colour goes and the values stay
+        vec3 mono = uPaper * mix(0.045, 1.0, pow(clamp(l * 1.06, 0.0, 1.0), 0.88));
+        col = mix(col, mono, uInkMode);
+        // and the paper shows through the pale end of the wash
+        float tooth2 = fbm2(uv * vec2(340.0, 330.0));
+        col = mix(col, uPaper, smoothstep(0.62, 0.99, luma(col)) * 0.55 * uInkMode);
+        col *= 1.0 + (tooth2 - 0.5) * 0.10 * uInkMode;
+      }
 
       // ---- contrast: give the picture a floor and a ceiling again ----
       col = clamp(col, 0.0, 1.0);
@@ -214,7 +237,7 @@ const FINISH = {
 
       // ---- vignette ----
       vec2 q = (uv - 0.5) * vec2(1.0, 0.92);
-      float v = 1.0 - dot(q, q) * uVignette * 1.65;
+      float v = 1.0 - dot(q, q) * uVignette * 1.65 * (1.0 - uInkMode * 0.82);
       col *= clamp(v, 0.0, 1.0);
 
       gl_FragColor = vec4(lin2srgb(max(col, 0.0)), 1.0);

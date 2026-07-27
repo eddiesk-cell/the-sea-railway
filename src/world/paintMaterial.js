@@ -48,6 +48,7 @@ export function makePaintMaterial(shared, opts = {}) {
     uCamPos:    { value: new THREE.Vector3() },
     uOpacity:   { value: opacity },
     uTrans:     { value: translucency },
+    uInkBias:   { value: opts.inkBias ?? 0.0 },
   }, shared);
 
   const mat = new THREE.ShaderMaterial({
@@ -91,7 +92,7 @@ export function makePaintMaterial(shared, opts = {}) {
       uniform float uTime;
       uniform vec3  uBase, uShade, uEmissive, uFogColor, uCamPos;
       uniform float uEmiStr, uRim, uBands, uWrap, uGrain, uGrainScale;
-      uniform float uFogDensity, uOpacity, uTrans;
+      uniform float uFogDensity, uOpacity, uTrans, uInkBias;
       uniform vec4 uLamps[3];       // xyz position, w range (0 = off)
       uniform vec3 uLampCols[3];
       varying vec3 vWorld;
@@ -164,9 +165,14 @@ export function makePaintMaterial(shared, opts = {}) {
 
         col += uEmissive * uEmiStr;
 
+        // ---- brush and water ----
+        if (uInk > 0.001) col = mix(col, inkWash(col, N, V, uInkBias), uInk);
+
         // ---- haze ----
         float fogA = 1.0 - exp(-pow(dist * uFogDensity, 1.34) * 1.9);
-        col = mix(col, uFogColor, clamp(fogA, 0.0, 1.0));
+        float m = mistAt(vWorld.y, dist);
+        fogA = clamp(fogA + m * (1.0 - fogA), 0.0, 1.0);
+        col = mix(col, uFogColor, fogA);
 
         gl_FragColor = vec4(col, uOpacity);
       }`,

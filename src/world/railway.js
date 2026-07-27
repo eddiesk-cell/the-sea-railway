@@ -4,7 +4,7 @@ import { makePaintMaterial, makeGlowMaterial } from './paintMaterial.js';
 import { patchHalo } from './bathhouse.js';
 
 const RAIL_HALF = 0.78;
-const TRACK_LEN = 5200;
+const TRACK_LEN = 11000;
 
 // The single line of track running out across the flooded plain, the little
 // platform you are standing on, and the train that comes through it.
@@ -31,7 +31,7 @@ export function createRailway(shared) {
   group.add(crown);
 
   // ---- sleepers ----
-  const near = 900, spacing = 1.55;
+  const near = 4800, spacing = 1.55;
   const nSleep = Math.floor((near * 2) / spacing);
   const sleepers = new THREE.InstancedMesh(box(5.0, 0.30, 0.62), sleeper, nSleep);
   const items = [];

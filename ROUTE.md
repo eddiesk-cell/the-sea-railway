@@ -16,6 +16,12 @@ in each region are original silhouettes. The tribute is to the landscapes.
 | # | Region | Film | Year | State |
 |---|---|---|---|---|
 | 1 | **The Sea Railway** — flooded plain, the bathhouse, the torii | Spirited Away | 2001 | ✅ live |
+| 15 | **The Ink Country** — karst peaks in mist, a bamboo grove, a pavilion | The Tale of the Princess Kaguya | 2013 | ✅ live |
+
+The line now runs from the Sea Railway straight into the Ink Country. Ride it
+(**R**) and the world changes around you over about three hundred metres: the
+sky stops being sky and becomes paper, the colour drains out of every surface,
+the haze turns white instead of blue, and the seal appears in the corner.
 
 ## The line, in order of the ride
 
@@ -96,9 +102,11 @@ It needs almost nothing new in the world and everything new in the finish:
 ## Phases
 
 1. ✅ **Ride the train.** Window seat, roof, step off. Cloud shadows. Continuous line.
-2. **The region system.** Route, streaming, palette cross-fade at the borders.
-3. **The Ink Country** — the shui-mo region, because it is the one that proves
-   the finish pass can be more than one look.
+2. ✅ **The region system.** Each region owns a stretch of line and declares its
+   own air — sky keys, haze, exposure, ink. Everything cross-fades over 280
+   metres at the border, so there is no seam anywhere.
+3. ✅ **The Ink Country** — and it proved the point: the finish pass can be a
+   different medium, not just a different palette.
 4. **Regions 8, 22, 18** — the bus stop, the valley of the wind, the meadow.
 5. **Regions 5, 24, 16** — Koriko, Laputa, the cedar forest.
 6. **Stops.** Stations, stepping off, a whistle that brings the train back.
