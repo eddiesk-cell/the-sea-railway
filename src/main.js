@@ -27,6 +27,10 @@ import { buildCrookedHouse } from './regions/crookedHouse.js';
 import { buildMeadow1920 } from './regions/meadow1920.js';
 import { buildTheTower } from './regions/theTower.js';
 import { buildTheSketch } from './regions/theSketch.js';
+import { createPlaces, placesNear, placeAt, groundAt, PLACE_COUNT } from './places/index.js';
+import { createLife } from './world/life.js';
+import { POPULATIONS } from './world/populations.js';
+import { createCompanion } from './world/companion.js';
 import { createRain } from './world/rain.js';
 import { createSound, windAt } from './world/sound.js';
 import { createWater } from './world/water.js';
@@ -172,6 +176,29 @@ function ensureNear(z, reach = 1600) {
   });
 }
 
+// --- the places off the line, and the people on it ---
+// Places are built only when you are ON FOOT, because by design there is
+// nothing to see of them from the window and building ninety of them for a
+// journey that passes all of them would cost the ride everything it has.
+// Life is built whether you are walking or riding: a road with traffic on it
+// and a sky with something in it are exactly what the seat should show you.
+const places = createPlaces(scene, shared);
+const life = createLife(shared);
+scene.add(life.group);
+const livePops = new Set();
+function ensureLifeNear(z, reach = 1500) {
+  REGIONS.forEach((r) => {
+    if (livePops.has(r.id)) return;
+    if (z > r.zNear + reach || z < r.zFar - reach) return;
+    livePops.add(r.id);
+    (POPULATIONS[r.id] ?? []).forEach((spec, i) => life.add(spec, r.shift, r.stop * 97 + i * 13));
+  });
+}
+
+// --- the traveller, who only exists when you are walking ---
+const companion = createCompanion(shared);
+scene.add(companion.group);
+
 // --- weather, and the sound of it ---
 const rain = createRain(shared, { count: 6500 });
 scene.add(rain.mesh);
@@ -193,19 +220,26 @@ const sound = createSound();
     mesh.position.set(x, -10, z);
     scene.add(mesh);
   });
-  // a wooded shoulder for the bathhouse to sit against, not a dome behind it
+  // A wooded shoulder for the bathhouse to sit against, not a dome behind it.
+  //
+  // The second one used to be centred at BATH.x + 250, which is x = -18 with a
+  // radius of 205 — so it reached 187 metres past the track and the train spent
+  // the region running through the inside of a hill. Eddie: "train went into
+  // the hills". Any hill near the line has to be checked against the corridor,
+  // not against how it looks from the seat.
+  const ROUGH = 0.52;
   const shoulders = [
     { at: new THREE.Vector3(BATH.x - 235, -10, BATH.z - 290), r: 262, h: 52, seed: 5, mat: far2 },
-    { at: new THREE.Vector3(BATH.x + 250, -10, BATH.z - 235), r: 205, h: 38, seed: 9, mat: far },
+    { at: new THREE.Vector3(BATH.x + 108, -10, BATH.z - 250), r: 132, h: 40, seed: 9, mat: far },
   ];
   shoulders.forEach(({ at, r, h, seed, mat }) => {
-    const m = new THREE.Mesh(hill(r, h, seed, { rough: 0.52 }), mat);
+    const m = new THREE.Mesh(hill(r, h, seed, { rough: ROUGH }), mat);
     m.position.copy(at);
     scene.add(m);
   });
 
   // a wood: firs, broadleaves, wind-shaped pines, blossom and bamboo
-  const forest = createForest(shared, shoulders.map(({ at, r, h }) => ({ at, r, h })));
+  const forest = createForest(shared, shoulders.map(({ at, r, h, seed }) => ({ at, r, h, seed, rough: ROUGH })));
   scene.add(forest.group);
   window.__trees = forest.count;
 
@@ -395,6 +429,44 @@ function goFree() {
   state.vel.set(0, 0, 0);
 }
 
+// ===========================================================================
+// Getting down
+//
+// Until now the train never stopped, so every place off the line was
+// theoretical. This is the whole of the mechanism: the journey holds where it
+// is, you are put on the ground beside the track, and the walk is at a walking
+// pace with your feet on whatever the ground turns out to be.
+//
+// Pressing G again brings the train back. It does not go anywhere while you
+// are off it — a railway that leaves without you is a different kind of story.
+// ===========================================================================
+function getDown() {
+  const z = state.mode === 'ride' ? line.z : camera.position.z;
+  line.held = true;
+  line.target = null; destIndex = null;
+  state.mode = 'walk';
+  state.pos.set(11.5, groundAt({ x: 11.5, z }) + EYE, z + 2);
+  state.yaw = Math.PI;                 // facing back down the line, toward -z
+  state.pitch = -0.04;
+  state.vel.set(0, 0, 0);
+  companion.reset(state.pos, state.yaw);
+  places.ensureNear(state.pos, 1400);
+  rideLabel(true, 'on foot', 'G to get back on · W A S D to walk');
+  mark();
+}
+
+function board() {
+  line.held = false;
+  state.mode = 'ride';
+  state.seat = 'window';
+  state.yaw = Math.PI / 2;
+  state.pitch = 0;
+  rideLabel(true, 'window seat');
+  mark();
+}
+
+const EYE = 1.68;
+
 // off -> a window seat -> the roof -> off again
 function rideNext() {
   if (state.mode !== 'ride') {
@@ -440,11 +512,13 @@ const line = {
   speed: 34,
   target: null,
   warp: 0,                            // 0 cruising .. 1 running flat out
+  held: false,                        // true while you are standing off it
 };
 let stopIndex = 0;      // where the train actually is
 let destIndex = null;   // where it is headed, while it is headed anywhere
 
 function travelTo(i) {
+  line.held = false;
   destIndex = ((i % REGIONS.length) + REGIONS.length) % REGIONS.length;
   line.target = REGIONS[destIndex].station;
   ensureRegion(REGIONS[destIndex]);
@@ -470,6 +544,7 @@ function nearestStop(z) {
 }
 
 function advanceLine(dt) {
+  if (line.held) { line.warp = 0; return; }
   if (line.target !== null) {
     const d = line.target - line.z;
     const ad = Math.abs(d);
@@ -570,11 +645,13 @@ canvas.addEventListener('pointermove', (e) => {
   prev.x = e.clientX; prev.y = e.clientY;
 
   if (pointers.size === 1 && dragging) {
-    goFree(); mark();
+    if (state.mode !== 'walk') goFree();
+    mark();
     state.yaw -= dx * 0.0026;
     state.pitch = THREE.MathUtils.clamp(state.pitch - dy * 0.0024, -1.25, 1.05);
   } else if (pointers.size === 2 && touchMove.active) {
-    goFree(); mark();
+    if (state.mode !== 'walk') goFree();
+    mark();
     touchMove.fwd = THREE.MathUtils.clamp(-dy * 0.06, -1, 1);
     touchMove.side = THREE.MathUtils.clamp(dx * 0.06, -1, 1);
   }
@@ -586,6 +663,7 @@ const endPointer = (e) => {
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', (e) => {
+  if (state.mode === 'walk') { e.preventDefault(); return; }   // you cannot zoom your legs
   goFree(); mark();
   const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
   state.pos.addScaledVector(dir, -e.deltaY * 0.045);
@@ -598,7 +676,8 @@ addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'h') { helpEl.classList.toggle('hidden'); return; }
   if (k === 'f') { state.mode === 'cine' ? goFree() : goCine(); mark(); return; }
-  if (k === 'r') { rideNext(); return; }
+  if (k === 'g') { state.mode === 'walk' ? board() : getDown(); return; }
+  if (k === 'r') { if (state.mode === 'walk') board(); else rideNext(); return; }
   if (k === 'o') { goHome(); return; }
   if (k === 'p') { togglePaint(); return; }
   if (k === 'm') { toggleSound(); return; }
@@ -606,7 +685,10 @@ addEventListener('keydown', (e) => {
   if (k === 'n' || k === 'arrowright') { travelTo(from + 1); return; }
   if (k === 'b' || k === 'arrowleft') { travelTo(from - 1); return; }
   state.keys.add(k);
-  if ('wasdqe c'.includes(k) || k === ' ' || k === 'shift') { goFree(); mark(); }
+  if ('wasdqe c'.includes(k) || k === ' ' || k === 'shift') {
+    if (state.mode !== 'walk') goFree();
+    mark();
+  }
 });
 addEventListener('keyup', (e) => state.keys.delete(e.key.toLowerCase()));
 addEventListener('blur', () => state.keys.clear());
@@ -692,6 +774,85 @@ function paintLine() {
   lineLblF.textContent = show.film + ' · ' + show.year;
 }
 
+// ---------------------------------------------------------------------------
+// The compass, and arriving
+//
+// This is the whole of the navigation this world will ever have, and it is
+// deliberately almost nothing.
+//
+// Eddie asked whether there should be signs and a map. Signs, no — the entire
+// pleasure of the thing is recognising a place unaided, and a caption hanging
+// over it does the recognising for you. But "no signs" cannot mean "no idea
+// where anything is", or exploring is just walking into fog. So: a strip along
+// the top with a MARK where something is, its distance, and not one word about
+// what it might be. The ground does the rest — every place has a path leading
+// to it, which is how Ghibli tells you where to walk without telling you.
+//
+// The name arrives only once you are standing in the place. By then it is not
+// a caption, it is a confirmation of something you already knew.
+// ---------------------------------------------------------------------------
+const compassEl = document.getElementById('compass');
+const foundEl = document.getElementById('found');
+const foundH = foundEl.querySelector('b');
+const foundF = foundEl.querySelector('i');
+const FOV_C = 1.15;                    // how much of the world the strip covers
+const marks = [];
+let foundPlace = null;
+const foundAt = new THREE.Vector3();
+let compassAcc = 0;
+
+function markEl(i) {
+  while (marks.length <= i) {
+    const d = document.createElement('div');
+    d.className = 'mk';
+    d.innerHTML = '<i></i><b></b>';
+    compassEl.appendChild(d);
+    marks.push(d);
+  }
+  return marks[i];
+}
+
+function paintCompass() {
+  const on = state.mode === 'walk';
+  compassEl.classList.toggle('show', on);
+  if (!on) { if (foundPlace) { foundPlace = null; foundEl.classList.remove('show'); } return; }
+
+  compassAcc += 1;
+  if (compassAcc % 6) return;          // six times a second is plenty
+
+  const near = placesNear(camera.position, 1200).slice(0, 8);
+  let used = 0;
+  near.forEach(({ place, d, bearing }) => {
+    let rel = bearing - state.yaw;
+    rel = ((rel + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    if (Math.abs(rel) > FOV_C) return;
+    const el = markEl(used++);
+    el.style.left = (50 + (rel / FOV_C) * 50) + '%';
+    // it fades with distance, so the far ones are hints and the near ones are
+    // directions — but it never says what any of them are
+    el.style.opacity = String(0.22 + 0.6 * (1 - Math.min(1, d / 1200)));
+    el.querySelector('b').textContent = d < 1000 ? Math.round(d / 10) * 10 + ' m' : (d / 1000).toFixed(1) + ' km';
+    el.classList.toggle('at', d < place.r);
+    el.style.display = '';
+  });
+  for (let i = used; i < marks.length; i++) marks[i].style.display = 'none';
+
+  const p = placeAt(camera.position);
+  if (p !== foundPlace) {
+    foundPlace = p;
+    if (p) {
+      foundAt.set(p.x, p.ground + 2, p.z);
+      foundH.textContent = p.name;
+      foundF.textContent = p.film;
+      foundEl.classList.add('show');
+      clearTimeout(paintCompass._t);
+      paintCompass._t = setTimeout(() => foundEl.classList.remove('show'), 7000);
+    } else {
+      foundEl.classList.remove('show');
+    }
+  }
+}
+
 const hintEl = document.getElementById('hint');
 const titleEl = document.getElementById('title');
 let hintTimer = null, hinted = false;
@@ -731,7 +892,10 @@ function frame() {
 
   windGust = windAt(clock);
   advanceLine(dt);
-  ensureNear(state.mode === 'ride' ? line.z : camera.position.z);
+  const here = state.mode === 'ride' ? line.z : camera.position.z;
+  ensureNear(here);
+  ensureLifeNear(here);
+  if (state.mode !== 'ride' && state.mode !== 'cine') places.ensureNear(camera.position, 900);
 
   if (state.mode === 'ride') {
     // Dead centre of a carriage, not near its end — sit by the join and the
@@ -772,6 +936,34 @@ function frame() {
     state.pos.copy(camera.position);
     const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
     state.yaw = e.y; state.pitch = e.x;
+  } else if (state.mode === 'walk') {
+    // A walk, not a flight: four and a half metres a second, no vertical
+    // control at all, and the head stays a fixed height above whatever is
+    // under it. Everything about the pace is deliberate — a place you arrive
+    // at in two seconds is not a place you went to.
+    shared.uLamps.value[2].w = 0;
+    const sp = (state.keys.has('shift') ? 11 : 4.6);
+    fwd.set(0, 0, -1).applyEuler(new THREE.Euler(0, state.yaw, 0, 'YXZ'));
+    right.set(1, 0, 0).applyEuler(new THREE.Euler(0, state.yaw, 0, 'YXZ'));
+    const acc = new THREE.Vector3();
+    if (state.keys.has('w')) acc.add(fwd);
+    if (state.keys.has('s')) acc.sub(fwd);
+    if (state.keys.has('d')) acc.add(right);
+    if (state.keys.has('a')) acc.sub(right);
+    if (touchMove.active) { acc.addScaledVector(fwd, touchMove.fwd); acc.addScaledVector(right, touchMove.side); }
+    if (acc.lengthSq() > 0) acc.normalize().multiplyScalar(sp);
+    state.vel.lerp(acc, 1 - Math.pow(0.0009, dt));
+    state.pos.addScaledVector(state.vel, dt);
+    state.pos.x = THREE.MathUtils.clamp(state.pos.x, -1500, 1500);
+    state.pos.z = THREE.MathUtils.clamp(state.pos.z, LINE_END - 400, REGIONS[0].zNear + 400);
+    const gnd = groundAt(state.pos);
+    state.pos.y = THREE.MathUtils.lerp(state.pos.y, gnd + EYE, 1 - Math.pow(0.004, dt));
+    camera.position.copy(state.pos);
+    // a walk has a rhythm; a hover does not
+    const stride = Math.hypot(state.vel.x, state.vel.z) / sp;
+    camera.position.y += Math.sin(clock * 7.4) * 0.035 * stride;
+    camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, Math.sin(clock * 3.7) * 0.006 * stride, 'YXZ'));
+    companion.update(dt, state.pos, state.yaw, gnd, foundPlace ? foundAt : null, true);
   } else if (state.mode === 'free') {
     shared.uLamps.value[2].w = 0;
     const sp = (state.keys.has('shift') ? 46 : 15);
@@ -869,6 +1061,10 @@ function frame() {
   sound.update(dt, mix, shared.uWind.value);
 
   live.forEach(r => r.update && r.update(clock));
+  places.update(clock, camera.position);
+  life.update(clock);
+  if (state.mode !== 'walk') companion.update(dt, camera.position, state.yaw, 0, null, false);
+  paintCompass();
   spirits.update(clock);
   lanterns.update(clock);
   steam.update(clock);
@@ -949,6 +1145,16 @@ window.__bench = (n = 30) => new Promise((resolve) => {
   };
   poll();
 });
+
+// step off at a given stop and stand there, for checking the places
+window.__walk = (i) => {
+  if (i !== undefined) window.__stop(i);
+  getDown();
+  return { stop: REGIONS[stopIndex].title, places: PLACE_COUNT, built: places.count, pops: life.count };
+};
+// what is within reach on foot, nearest first
+window.__near = (n = 6) => placesNear(camera.position, 2000).slice(0, n)
+  .map(({ place, d }) => `${Math.round(d)}m ${place.name}`);
 
 // a hook for parking the camera on an exact frame while tuning the look
 window.__view = (px, py, pz, lx, ly, lz) => {

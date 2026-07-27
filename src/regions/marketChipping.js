@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN, hillSampler } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -39,9 +39,10 @@ export function buildMarketChipping(shared) {
   // region running through the inside of it — which is what a bald pale plane
   // filling the window actually is.
   const HX = -760, HZ = -1350, HR = 400, HH = 150;
+  const hillSurf = hillSampler(HR, HH, 23, { rough: 0.12 });
   const groundAt = (x, z) => {
-    const d = Math.hypot(x - HX, z - HZ) / HR;
-    return d >= 1 ? 0 : -8 + HH * Math.sqrt(Math.max(0, 1 - d * d));
+    const s = hillSurf(x - HX, z - HZ);
+    return s === null ? 0 : -8 + s;
   };
   {
     const h = new THREE.Mesh(hill(HR, HH, 23, { rough: 0.12, rings: 18, sectors: 26 }), grassM);

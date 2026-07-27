@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { mulberry, fillInstances } from './geo.js';
+import { mulberry, fillInstances, hillSampler } from './geo.js';
 import { makePaintMaterial } from './paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -13,12 +13,19 @@ import { makePaintMaterial } from './paintMaterial.js';
 // species. One draw call per species.
 // ---------------------------------------------------------------------------
 
+// Each maker returns the crown and the WOOD separately.
+//
+// They used to come back as one merged geometry drawn with one material, so
+// every trunk in the wood was the same green as the leaves on it. Eddie: "for
+// tree trunk I see them in green, shouldn't they be real tree with barks?" —
+// and at four metres that is the first thing you look at.
+
 // --- fir: stacked skirts, narrow, dark ---
 function conifer(rnd) {
-  const parts = [];
-  const trunk = new THREE.CylinderGeometry(0.018, 0.032, 0.30, 5);
-  trunk.translate(0, 0.15, 0);
-  parts.push(trunk);
+  const parts = [], wood = [];
+  const trunk = new THREE.CylinderGeometry(0.018, 0.032, 0.34, 5);
+  trunk.translate(0, 0.17, 0);
+  wood.push(trunk);
   const tiers = 3;
   for (let i = 0; i < tiers; i++) {
     const f = i / tiers;
@@ -28,15 +35,25 @@ function conifer(rnd) {
     c.translate((rnd() - 0.5) * 0.03, 0.22 + f * 0.30 + h * 0.5, (rnd() - 0.5) * 0.03);
     parts.push(c);
   }
-  return mergeGeometries(parts, false);
+  return { crown: mergeGeometries(parts, false), wood: mergeGeometries(wood, false) };
 }
 
 // --- broadleaf: a trunk and a lumpy crown ---
 function broadleaf(rnd, spread = 1.0, lift = 1.0) {
-  const parts = [];
-  const trunk = new THREE.CylinderGeometry(0.028, 0.055, 0.52 * lift, 6);
-  trunk.translate(0, 0.26 * lift, 0);
-  parts.push(trunk);
+  const parts = [], wood = [];
+  const trunk = new THREE.CylinderGeometry(0.028, 0.055, 0.56 * lift, 6);
+  trunk.translate(0, 0.28 * lift, 0);
+  wood.push(trunk);
+  // two boughs leaving the trunk, so the crown is carried rather than balanced
+  for (let i = 0; i < 2; i++) {
+    const a = rnd() * Math.PI * 2;
+    const b = new THREE.CylinderGeometry(0.014, 0.028, 0.26 * lift, 5);
+    b.translate(0, 0.13 * lift, 0);
+    b.rotateZ((i ? 1 : -1) * (0.45 + rnd() * 0.3));
+    b.rotateY(a);
+    b.translate(0, 0.50 * lift, 0);
+    wood.push(b);
+  }
   const blobs = 4;
   for (let i = 0; i < blobs; i++) {
     const a = (i / blobs) * Math.PI * 2 + rnd();
@@ -47,17 +64,17 @@ function broadleaf(rnd, spread = 1.0, lift = 1.0) {
     b.translate(Math.cos(a) * d, 0.62 * lift + (rnd() - 0.4) * 0.14, Math.sin(a) * d);
     parts.push(b);
   }
-  return mergeGeometries(parts, false);
+  return { crown: mergeGeometries(parts, false), wood: mergeGeometries(wood, false) };
 }
 
 // --- Japanese pine: a leaning trunk under flat plates of needles ---
 function pineJp(rnd) {
-  const parts = [];
+  const parts = [], wood = [];
   const lean = (rnd() - 0.5) * 0.5;
-  const trunk = new THREE.CylinderGeometry(0.022, 0.045, 0.72, 6);
+  const trunk = new THREE.CylinderGeometry(0.022, 0.045, 0.76, 6);
   trunk.rotateZ(lean * 0.35);
-  trunk.translate(lean * 0.10, 0.36, 0);
-  parts.push(trunk);
+  trunk.translate(lean * 0.10, 0.38, 0);
+  wood.push(trunk);
   const plates = 3;
   for (let i = 0; i < plates; i++) {
     const f = i / (plates - 1);
@@ -69,7 +86,7 @@ function pineJp(rnd) {
                 (rnd() - 0.5) * 0.12);
     parts.push(p);
   }
-  return mergeGeometries(parts, false);
+  return { crown: mergeGeometries(parts, false), wood: mergeGeometries(wood, false) };
 }
 
 // --- blossom: a low, wide, soft cloud on a short trunk ---
@@ -79,7 +96,7 @@ function blossom(rnd) {
 
 // --- bamboo: a stand of canes ---
 function bamboo(rnd) {
-  const parts = [];
+  const parts = [], wood = [];
   const canes = 7;
   for (let i = 0; i < canes; i++) {
     const a = rnd() * Math.PI * 2, d = rnd() * 0.13;
@@ -88,7 +105,7 @@ function bamboo(rnd) {
     c.rotateZ((rnd() - 0.5) * 0.18);
     c.rotateX((rnd() - 0.5) * 0.18);
     c.translate(Math.cos(a) * d, h * 0.5, Math.sin(a) * d);
-    parts.push(c);
+    wood.push(c);
     // a scruff of leaves at the top
     for (let k = 0; k < 3; k++) {
       const l = new THREE.SphereGeometry(0.055 + rnd() * 0.045, 5, 4);
@@ -99,20 +116,42 @@ function bamboo(rnd) {
       parts.push(l);
     }
   }
-  return mergeGeometries(parts, false);
+  return { crown: mergeGeometries(parts, false), wood: mergeGeometries(wood, false) };
 }
 
+// Colour here is set for a wood you can WALK INTO, not one seen from a train.
+//
+// The first pass was picked at 400 m through dusk haze, where anything lighter
+// looked artificial. Standing under it at four metres the same numbers read as
+// five shades of black — Eddie's words were "the trees are so dark I hardly see
+// the colours at all", and he was right. Fog and distance darken a surface;
+// they never lighten one. So the albedo has to be set from ARM'S LENGTH and
+// allowed to sink into the haze on its own.
+//
+// The shadow tints keep their hue rather than falling to grey, and the wrap is
+// wide, so the side of a tree facing away from a dusk sun is still green.
+//
+// The blossom used to be pink (#bb9498) and Eddie spotted it in the first
+// minute: cherry in the Spirited Away wood is the wrong film and the wrong
+// season. The SHAPE is worth keeping — a low wide cloud on a short trunk is the
+// only silhouette in the set that is broader than it is tall — so it stayed and
+// turned into an autumn broadleaf.
 const SPECIES = [
   { name: 'fir',       make: conifer,   weight: 0.24, hMin: 13, hMax: 25,
-    color: '#2f4a35', shadow: '#132a26', rim: 0.34, trans: 0.55 },
+    color: '#41654a', shadow: '#22423a', rim: 0.34, trans: 0.55,
+    bark: '#4a3b30', barkShadow: '#1e1712' },
   { name: 'broadleaf', make: broadleaf, weight: 0.30, hMin: 10, hMax: 19,
-    color: '#46592a', shadow: '#1b2c1c', rim: 0.40, trans: 1.05 },
+    color: '#62793a', shadow: '#2e4529', rim: 0.40, trans: 1.05,
+    bark: '#6a5a48', barkShadow: '#2a231c' },
   { name: 'pine',      make: pineJp,    weight: 0.17, hMin: 9,  hMax: 17,
-    color: '#35492f', shadow: '#152720', rim: 0.42, trans: 0.75 },
+    color: '#4a6440', shadow: '#243c30', rim: 0.42, trans: 0.75,
+    bark: '#7a5238', barkShadow: '#301e14' },     // red pine, and it should read red
   { name: 'blossom',   make: blossom,   weight: 0.11, hMin: 7,  hMax: 13,
-    color: '#bb9498', shadow: '#513c47', rim: 0.66, trans: 0.95 },
+    color: '#8a7c36', shadow: '#413a20', rim: 0.66, trans: 1.15,
+    bark: '#4e4038', barkShadow: '#1c1714' },
   { name: 'bamboo',    make: bamboo,    weight: 0.18, hMin: 9,  hMax: 16,
-    color: '#5d7431', shadow: '#26361d', rim: 0.50, trans: 1.20 },
+    color: '#6d8a3c', shadow: '#374a24', rim: 0.50, trans: 0.95,
+    bark: '#9aa84e', barkShadow: '#4a5424' },
 ];
 
 // `sites` is a list of { at: Vector3 (base of the hill), r, h } — trees are
@@ -125,7 +164,14 @@ export function createForest(shared, sites, seed = 4242) {
   const geos = SPECIES.map(sp => [sp.make(rnd), sp.make(rnd), sp.make(rnd)]);
   const mats = SPECIES.map(sp => makePaintMaterial(shared, {
     color: sp.color, shadowTint: sp.shadow, rim: sp.rim, bands: 2,
-    grain: 0.22, grainScale: 0.55, translucency: sp.trans,
+    grain: 0.22, grainScale: 0.55, translucency: sp.trans, wrap: 0.66,
+  }));
+  // Wood. Bark for four of them and a pale green cane for the bamboo, and the
+  // grain runs coarse and vertical so a trunk reads as a trunk close up.
+  const woodMats = SPECIES.map(sp => makePaintMaterial(shared, {
+    color: sp.bark, shadowTint: sp.barkShadow, rim: 0.75, bands: 3,
+    grain: 0.30, grainScale: 2.6, wrap: 0.52,
+    translucency: sp.name === 'bamboo' ? 0.35 : 0,
   }));
 
   const buckets = SPECIES.map(() => [[], [], []]);
@@ -133,12 +179,18 @@ export function createForest(shared, sites, seed = 4242) {
   let acc = 0;
   SPECIES.forEach(sp => { acc += sp.weight; cumulative.push(acc); });
 
-  sites.forEach(({ at, r, h }) => {
+  sites.forEach(({ at, r, h, seed: hseed = 1, rough = 0.34 }) => {
+    // Ask the hill where its own surface is. The old line here invented a
+    // smooth hemisphere and shaved 7% off it for luck, which on a hill built
+    // with rough 0.52 put whole stands of trees twenty metres up in the air.
+    const surface = hillSampler(r, h, hseed, { rough });
     const n = Math.round(r * 4.6);
     for (let i = 0; i < n; i++) {
       const a = rnd() * Math.PI * 2;
       const d = Math.sqrt(rnd()) * r * 0.95;
-      const y = at.y + h * Math.sqrt(Math.max(0, 1 - (d / r) ** 2)) * 0.93;
+      const s = surface(Math.cos(a) * d, Math.sin(a) * d);
+      if (s === null) continue;
+      const y = at.y + s;
 
       // pick a species; bamboo and blossom prefer the lower slopes
       const slope = d / r;
@@ -163,7 +215,7 @@ export function createForest(shared, sites, seed = 4242) {
   buckets.forEach((variants, si) => {
     variants.forEach((items, vi) => {
       if (!items.length) return;
-      const mesh = new THREE.InstancedMesh(geos[si][vi], mats[si], items.length);
+      const mesh = new THREE.InstancedMesh(geos[si][vi].crown, mats[si], items.length);
       fillInstances(mesh, items);
       // every tree its own shade — a wood is never one colour
       const col = new THREE.Color();
@@ -174,6 +226,18 @@ export function createForest(shared, sites, seed = 4242) {
       mesh.instanceColor.needsUpdate = true;
       mesh.frustumCulled = false;
       group.add(mesh);
+
+      const bark = new THREE.InstancedMesh(geos[si][vi].wood, woodMats[si], items.length);
+      fillInstances(bark, items);
+      // barely any jitter on the wood: bark varies far less than foliage does
+      items.forEach((it, i) => {
+        const k = 0.88 + (it.tint - 0.82) * 0.34;
+        col.setRGB(k * (1 + it.warm * 0.4), k, k * (1 - it.warm * 0.3));
+        bark.setColorAt(i, col);
+      });
+      bark.instanceColor.needsUpdate = true;
+      bark.frustumCulled = false;
+      group.add(bark);
     });
   });
 

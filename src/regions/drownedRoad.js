@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, curvedRoof, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
+import { box, curvedRoof, hill, mulberry, fillInstances, mergePN, hillSampler } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -104,15 +104,46 @@ export function buildDrownedRoad(shared) {
     transparent: true, opacity: 0.86, depthWrite: true,
   });
 
+  // ---- where the land is -------------------------------------------------
+  // Declared up here rather than inside the town block, because the shoal
+  // needs it too: a fish does not know where the shore is unless something
+  // tells it, and Eddie watched them "swim into land or out of the land",
+  // which is precisely what a shoal with no shore test does.
+  const HILLS = [
+    [-330, -900, 300, 88, 3], [-620, -1700, 380, 128, 8], [-300, -2600, 260, 74, 14],
+    [520, -1200, 300, 74, 21], [700, -2300, 350, 96, 27],
+  ];
+  const HILL_SURF = HILLS.map(([, , r, h, seed]) => hillSampler(r, h, seed, { rough: 0.12 }));
+  const groundAt = (x, z) => {
+    let best = 0;
+    HILLS.forEach(([hx, hz], i) => {
+      const s = HILL_SURF[i](x - hx, z - hz);
+      if (s !== null) best = Math.max(best, -4 + s);
+    });
+    return best;
+  };
+
   // They run the length of THIS region and no further. A shoal that travels
   // its own length twice over swims out of Ponyo and into Kiki's harbour,
   // where a forty-metre fish is not what the picture is about.
   const RUN = 2200;
   const shoal = [];
   for (let i = 0; i < 120; i++) {
+    // Two bands, and both of them are WATER.
+    //
+    // The lanes used to run from x -50 to -280, which is straight through the
+    // three hills the town stands on — Eddie watched them "swim into land or
+    // out of the land". The near band now runs in the channel between the road
+    // at -26 and the line, so the shoal keeps pace with the train the way it
+    // keeps pace with the car in the film; the far band is out in open sea,
+    // clear of the hills on the other side, which start at 220.
+    const near = i % 3 !== 0;
     shoal.push({
-      x: -(50 + rnd() * 230), z0: rnd() * RUN,
-      s: 4.0 + rnd() * 6.5, ph: rnd() * 6.28, sp: 0.5 + rnd() * 0.7,
+      x: near ? -(9 + rnd() * 13) : 55 + rnd() * 140,
+      wob: near ? 8 : 30,
+      z0: rnd() * RUN,
+      s: near ? 3.4 + rnd() * 4.0 : 5.5 + rnd() * 7.0,
+      ph: rnd() * 6.28, sp: 0.5 + rnd() * 0.7,
       lane: rnd() * 6.28,
     });
   }
@@ -127,23 +158,11 @@ export function buildDrownedRoad(shared) {
   {
     // Real hills, and houses standing on them — a house placed at a height
     // with no ground under it hangs in the air, which the eye spots instantly.
-    const HILLS = [
-      [-330, -900, 300, 88, 3], [-620, -1700, 380, 128, 8], [-300, -2600, 260, 74, 14],
-      [520, -1200, 300, 74, 21], [700, -2300, 350, 96, 27],
-    ];
     HILLS.forEach(([x, z, r, h, seed]) => {
       const m = new THREE.Mesh(hill(r, h, seed, { rough: 0.12, rings: 14, sectors: 22 }), green);
       m.position.set(x, -4, z);
       group.add(m);
     });
-    const groundAt = (x, z) => {
-      let best = 0;
-      HILLS.forEach(([hx, hz, r, h]) => {
-        const d = Math.hypot(x - hx, z - hz) / r;
-        if (d < 1) best = Math.max(best, -4 + h * Math.sqrt(Math.max(0, 1 - d * d)));
-      });
-      return best;
-    };
 
     // Trees, before anything else. A bare green dome half a kilometre off
     // reads as a painted backdrop no matter how many houses you put on it —
@@ -194,8 +213,13 @@ export function buildDrownedRoad(shared) {
       const w = 13 + rnd() * 11, h = 9 + rnd() * 8, dp = 11 + rnd() * 10;
       const ry = rnd() * 0.7 - 0.35;
       houses.push({ pos: [x, y + h / 2, z], rot: [0, ry, 0], scale: [w, h, dp] });
+      // curvedRoof() is anchored at its EAVE, not at its middle, unlike the
+      // cones every other region roofs with. Placing it by the same arithmetic
+      // left every roof in Ponyo hanging one and nine tenths of a metre above
+      // its own walls — which from the hill opposite reads as a floating house,
+      // and is what Eddie saw first.
       (rnd() > 0.4 ? roofsR : roofsB).push({
-        pos: [x, y + h + 1.9, z], rot: [0, ry, 0], scale: [(w + 3.6) / 12, 4.4 / 3, (dp + 3.6) / 12],
+        pos: [x, y + h - 0.2, z], rot: [0, ry, 0], scale: [(w + 3.6) / 12, 4.4 / 3, (dp + 3.6) / 12],
       });
     }
     const hm = new THREE.InstancedMesh(box(1, 1, 1), wall, houses.length);
@@ -240,16 +264,25 @@ export function buildDrownedRoad(shared) {
       const y = Math.sin(t * 0.8 * f.sp + f.ph) * 2.5 - 1.3;
       const roll = Math.sin(t * 1.4 + f.ph) * 0.28;
       const yaw = Math.sin(t * 0.31 + f.lane) * 0.22;
-      pv.set(f.x + Math.sin(t * 0.24 + f.lane) * 26, y, z);
+      const x = f.x + Math.sin(t * 0.24 + f.lane) * f.wob;
+      pv.set(x, y, z);
       e.set(Math.sin(t * 0.9 + f.ph) * 0.14, yaw, roll);
       q.setFromEuler(e);
-      sv.set(f.s, f.s, f.s);
+      // A fish is only where there is water to be in. The lanes run the whole
+      // length of the region and the hills stand in several of them, so each
+      // one dives as its own patch of sea shallows and comes back up on the
+      // far side — rather than swimming up a hillside, which is what it did
+      // before anything here knew where the shore was.
+      const land = groundAt(x, z);
+      const sink = 1 - THREE.MathUtils.smoothstep(land, -16, -1);
+      const sc = f.s * sink;
+      sv.set(sc, sc, sc);
       m.compose(pv, q, sv);
       fishMesh.setMatrixAt(i, m);
       // the eyes, which are the entire joke
       for (let k = 0; k < 2; k++) {
         const s2 = k ? 1 : -1;
-        const off = new THREE.Vector3(s2 * 0.62 * f.s, 0.22 * f.s, 1.30 * f.s).applyQuaternion(q);
+        const off = new THREE.Vector3(s2 * 0.62 * sc, 0.22 * sc, 1.30 * sc).applyQuaternion(q);
         m.compose(pv.clone().add(off), q, sv);
         eyeMesh.setMatrixAt(i * 2 + k, m);
       }

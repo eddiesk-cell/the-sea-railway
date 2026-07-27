@@ -100,6 +100,44 @@
   #line .lbl i { display:block; font-style:normal; font-size:10px; letter-spacing:.14em;
                  opacity:.42; margin-top:3px; }
 
+  /* ---- the compass: marks, distances, and never a name ---- */
+  #compass {
+    position:absolute; left:50%; top:clamp(38px,6vh,64px); transform:translateX(-50%);
+    width:min(78vw, 720px); height:34px; opacity:0; transition:opacity .5s ease;
+    font-family:ui-sans-serif,system-ui,sans-serif; pointer-events:none;
+  }
+  #compass.show { opacity:1; }
+  #compass::before {
+    content:''; position:absolute; left:0; right:0; top:7px; height:1px;
+    background:linear-gradient(90deg, rgba(255,225,180,0) 0%, rgba(255,225,180,.20) 18%,
+      rgba(255,225,180,.20) 82%, rgba(255,225,180,0) 100%);
+  }
+  #compass .mk { position:absolute; top:0; transform:translateX(-50%); text-align:center; }
+  #compass .mk i {
+    display:block; width:5px; height:5px; margin:5px auto 0; border-radius:1px;
+    background:#ffe0ab; transform:rotate(45deg);
+    box-shadow:0 0 8px 1px rgba(232,176,106,.45);
+  }
+  #compass .mk b {
+    display:block; margin-top:7px; font-size:9.5px; font-weight:500; letter-spacing:.12em;
+    color:#f3e7d3; opacity:.55; text-shadow:0 1px 8px rgba(0,0,0,.9); white-space:nowrap;
+  }
+  #compass .mk.at i { width:8px; height:8px; margin-top:3px; background:#fff2d4;
+                      box-shadow:0 0 16px 3px rgba(255,220,150,.7); }
+
+  /* the name of the place you are standing in — never of one you are not */
+  #found {
+    position:absolute; left:50%; top:clamp(84px,13vh,132px); transform:translateX(-50%) translateY(-6px);
+    text-align:center; opacity:0; transition:opacity 1.1s ease, transform 1.1s ease;
+    text-shadow:0 2px 22px rgba(0,0,0,.8); pointer-events:none;
+  }
+  #found.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #found b { display:block; font-size:clamp(16px,2.2vw,26px); font-weight:500; letter-spacing:.05em; color:#fbeeda; }
+  #found i {
+    display:block; font-style:normal; margin-top:.5em; font-size:10px; letter-spacing:.22em;
+    text-transform:uppercase; opacity:.5; font-family:ui-sans-serif,system-ui,sans-serif;
+  }
+
   /* ---- help panel ---- */
   #help {
     position:absolute; right:clamp(16px,2.4vw,32px); top:clamp(16px,2.4vh,32px);
@@ -187,6 +225,11 @@
 
     <div id="ride"></div>
 
+    <!-- A mark where something is, and how far. No names, no icons, no
+         categories — the recognising has to be the visitor's. -->
+    <div id="compass"></div>
+    <div id="found"><b></b><i></i></div>
+
     <!-- the artist's seal: the only colour in the ink region, and it sits on
          the paper rather than in the world, which is where a seal belongs -->
     <div id="seal" aria-hidden="true">
@@ -198,7 +241,7 @@
       </svg>
     </div>
 
-    <div id="hint"><b>R</b> to ride &nbsp;·&nbsp; <b>O</b> to circle where you are looking &nbsp;·&nbsp; <b>N</b> for the next stop &nbsp;·&nbsp; <b>drag</b> to look &nbsp;·&nbsp; <b>W A S D</b> to walk</div>
+    <div id="hint"><b>R</b> to ride &nbsp;·&nbsp; <b>G</b> to get down and walk &nbsp;·&nbsp; <b>O</b> to circle where you are looking &nbsp;·&nbsp; <b>N</b> for the next stop &nbsp;·&nbsp; <b>drag</b> to look</div>
 
     <!-- The line. Twenty-seven stops, and you can see which of them are laid —
          which is the difference between a world and a view of one thing. -->
@@ -213,7 +256,8 @@
       <div class="row"><span>Move</span><kbd>W A S D</kbd></div>
       <div class="row"><span>Rise / sink</span><kbd>space / C</kbd></div>
       <div class="row"><span>Glide faster</span><kbd>shift</kbd></div>
-      <div class="row"><span>Ride the train (it never stops)</span><kbd>R</kbd></div>
+      <div class="row"><span>Ride the train</span><kbd>R</kbd></div>
+      <div class="row"><span>Get down / get back on</span><kbd>G</kbd></div>
       <div class="row"><span>Circle this place, and stay</span><kbd>O</kbd></div>
       <div class="row"><span>Next stop up the line</span><kbd>N</kbd></div>
       <div class="row"><span>Back one stop</span><kbd>B</kbd></div>

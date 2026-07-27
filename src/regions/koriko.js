@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN, hillSampler } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -79,9 +79,10 @@ export function buildKoriko(shared) {
   const wallsA = [], wallsB = [], wallsC = [], roofs = [], roofs2 = [], chimneys = [];
   // hill() is a hemisphere, so this is the hemisphere — inventing a different
   // curve here is exactly how a town ends up hanging in the air above its hill
+  const domeSurf = hillSampler(360, 118, 12, { rough: 0.10 });
   const domeH = (x, z) => {
-    const d = Math.hypot(x - HX, z - HZ) / 360;
-    return d >= 1 ? -6 : -6 + 118 * Math.sqrt(Math.max(0, 1 - d * d));
+    const s = domeSurf(x - HX, z - HZ);
+    return s === null ? -6 : -6 + s;
   };
 
   for (let i = 0; i < 520; i++) {

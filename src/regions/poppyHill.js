@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN, hillSampler } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -57,9 +57,10 @@ export function buildPoppyHill(shared) {
   const QUAY = -22;                       // the near edge of the water
   const FAR = -232;                       // where the far shore starts
   const HX = -560, HZ = -1350, HR = 330, HH = 142;
+  const hillSurf = hillSampler(HR, HH, 41, { rough: 0.16 });
   const groundAt = (x, z) => {
-    const d = Math.hypot(x - HX, z - HZ) / HR;
-    return d >= 1 ? 1.6 : -4 + HH * Math.sqrt(Math.max(0, 1 - d * d));
+    const s = hillSurf(x - HX, z - HZ);
+    return s === null ? 1.6 : -4 + s;
   };
   {
     // the quay you are running along
@@ -210,9 +211,10 @@ export function buildPoppyHill(shared) {
     const SX = -196, SZ = -1300, SR = 118, SH = 38;
     const spur = new THREE.Mesh(hill(SR, SH, 88, { rough: 0.20, rings: 14, sectors: 22 }), grassM);
     spur.position.set(SX, -4, SZ); group.add(spur);
+    const spurSurf = hillSampler(SR, SH, 88, { rough: 0.20 });
     const spurAt = (x, z) => {
-      const d = Math.hypot(x - SX, z - SZ) / SR;
-      return d >= 1 ? 1.6 : -4 + SH * Math.sqrt(Math.max(0, 1 - d * d));
+      const s = spurSurf(x - SX, z - SZ);
+      return s === null ? 1.6 : -4 + s;
     };
     {
       const bushM = makePaintMaterial(shared, {

@@ -135,7 +135,9 @@ export function buildOceanWaves(shared) {
       const w = 8 + rnd() * 6, dp = 8 + rnd() * 6, ht = 5 + rnd() * 4;
       const ry = (rnd() - 0.5) * 0.14;
       wallsets[(rnd() * 2) | 0].push({ pos: [x, ht / 2 + 1.4, z], rot: [0, ry, 0], scale: [w, ht, dp] });
-      roofs.push({ pos: [x, ht + 2.6, z], rot: [0, ry, 0], scale: [(w + 2.4) / 1.42, 2.6 + rnd() * 1.2, (dp + 2.4) / 1.42] });
+      // the cone below is translated to sit on its own base, so this is the
+      // wall top and not the wall top plus a guess
+      roofs.push({ pos: [x, ht + 1.3, z], rot: [0, ry, 0], scale: [(w + 2.4) / 1.42, 2.6 + rnd() * 1.2, (dp + 2.4) / 1.42] });
       if (rnd() > 0.6) wins.push({ pos: [x - w / 2 - 0.05, ht * 0.7, z], rot: [0, -Math.PI / 2, 0], scale: [2.2, 1.4, 1] });
     }
     const roofGeo = (() => {

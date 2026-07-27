@@ -4,8 +4,13 @@
 scenes, but the rest we don't see — so when the user gets down and explores,
 include more places according to the scenes."*
 
-He is right, and it is the single best thing left to build. Here is why, how it
-should work, and what goes in every country.
+**Built, 2026-07-27.** Eighty-six of these are in the world: press **G** to get
+down off the train and walk to them. What follows is the design they were built
+to, kept as written because the three rules are the whole of it.
+
+The train now stops. It holds where it is for as long as you are off it, and
+**G** brings you back to it — a railway that leaves without you is a different
+kind of story.
 
 ## Why this is the right next thing
 
@@ -240,9 +245,14 @@ About 90 places. At the density of the current regions that is roughly the same
 again as everything built so far, and it should not be done in one pass. The
 order I would take it:
 
-1. **Stepping off** — the platform, the whistle, the train coming back. Without
-   this none of the rest is reachable and the whole idea stays theoretical.
-2. **Three places, in one country**, to find out what "a place worth walking to"
-   actually needs. Mononoke is the right test: the pool, the village, and the
-   cave — Eddie named two of the three himself.
-3. **Then the rest**, a country at a time, with the pool as the standard.
+1. ~~**Stepping off**~~ — done. **G** gets you down, holds the train, and puts
+   you on the ground at walking pace with your feet on the actual floor.
+2. ~~**Three places, in one country**~~ — done, and Mononoke was the right test.
+3. ~~**Then the rest**~~ — done: eighty-six places across all twenty-seven
+   countries, each with a path leading to it and a name that only arrives once
+   you are standing in it.
+
+What is NOT done, and is the honest state of it: the places are first passes.
+They are built, reachable, named on arrival and lit correctly, but only a
+handful have been looked at from the ground one at a time. Expect to find
+things standing slightly wrong.

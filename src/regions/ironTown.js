@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { box, hill, mulberry, fillInstances, mergePN } from '../world/geo.js';
+import { box, hill, mulberry, fillInstances, mergePN, hillSampler } from '../world/geo.js';
 import { makePaintMaterial, makeGlowMaterial } from '../world/paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -60,9 +60,13 @@ export function buildIronTown(shared) {
     const h = new THREE.Mesh(hill(560, 150, 77, { rough: 0.34, rings: 16, sectors: 24 }), bare);
     h.position.set(TX - 320, -14, TZ - 700);
     group.add(h);
+    // Ask the hill, rather than guessing at its shape. At rough 0.34 the
+    // smooth-hemisphere guess was out by up to twenty metres and the stumps
+    // stood in the air above their own hillside.
+    const surf = hillSampler(560, 150, 77, { rough: 0.34 });
     const groundAt = (x, z) => {
-      const d = Math.hypot(x - (TX - 320), z - (TZ - 700)) / 560;
-      return d >= 1 ? 0 : -14 + 150 * Math.sqrt(Math.max(0, 1 - d * d));
+      const s = surf(x - (TX - 320), z - (TZ - 700));
+      return s === null ? 0 : -14 + s;
     };
     // stumps: the cost of the furnace, written on the hill in short vertical
     // marks. Nothing says "this place eats forest" faster than a field of them.
