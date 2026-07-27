@@ -41,6 +41,14 @@
     text-shadow:0 1px 10px rgba(0,0,0,.9); white-space:nowrap;
   }
   #hint.show { opacity:.5; }
+
+  #ride {
+    position:absolute; left:50%; top:clamp(16px,3vh,30px); transform:translateX(-50%);
+    font-family:ui-sans-serif,system-ui,sans-serif; font-size:11px; letter-spacing:.2em;
+    text-transform:uppercase; opacity:0; transition:opacity .6s ease;
+    text-shadow:0 1px 10px rgba(0,0,0,.9); white-space:nowrap; color:#f0c98a;
+  }
+  #ride.show { opacity:.72; }
   #hint b { font-weight:600; color:#f0c98a; letter-spacing:.14em; }
 
   /* ---- help panel ---- */
@@ -123,7 +131,9 @@
       <p>a spirited world</p>
     </div>
 
-    <div id="hint"><b>drag</b> to look &nbsp;·&nbsp; <b>W A S D</b> to walk &nbsp;·&nbsp; <b>H</b> for controls</div>
+    <div id="ride"></div>
+
+    <div id="hint"><b>drag</b> to look &nbsp;·&nbsp; <b>W A S D</b> to walk &nbsp;·&nbsp; <b>R</b> to ride the train &nbsp;·&nbsp; <b>H</b> for controls</div>
 
     <div id="help" class="hidden">
       <h2>Controls</h2>
@@ -131,6 +141,7 @@
       <div class="row"><span>Move</span><kbd>W A S D</kbd></div>
       <div class="row"><span>Rise / sink</span><kbd>space / C</kbd></div>
       <div class="row"><span>Glide faster</span><kbd>shift</kbd></div>
+      <div class="row"><span>Ride the train</span><kbd>R</kbd></div>
       <div class="row"><span>Let go (cinematic)</span><kbd>F</kbd></div>
       <div class="sep"></div>
       <div class="toggle on" id="t-paint"><span>Painterly</span><i class="sw"></i></div>

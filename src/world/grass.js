@@ -199,6 +199,8 @@ export function createGrass(shared, opts = {}) {
         // ---- banded key light ----
         float lam = clamp((dot(N, L) + 0.5) / 1.5, 0.0, 1.0);
         float q = floor(lam * 3.0) / 3.0 + smoothstep(0.42, 0.58, fract(lam * 3.0)) / 3.0;
+        float shade = cloudShadowAt(vWorld.xz, uTime);
+        q *= mix(1.0, shade, 0.9);
         vec3 col = base * (0.62 + q * 1.05);
         col *= mix(vec3(1.0), uSunTint * 0.9 + uHorizon * 0.2, q * 0.55);
 
@@ -211,7 +213,7 @@ export function createGrass(shared, opts = {}) {
         float back = smoothstep(0.35, -0.45, dot(N, L));
         float through = pow(clamp(dot(-V, L) * 0.5 + 0.5, 0.0, 1.0), 4.5) * back;
         vec3 sap = mix(uBlade, vec3(0.34, 0.29, 0.10), 0.30);
-        col += uSunTint * sap * through * (0.22 + 0.78 * vH) * 3.3;
+        col += uSunTint * sap * through * (0.22 + 0.78 * vH) * 3.3 * shade;
 
         // ---- sky bounce, tinted by the blade ----
         float up = N.y * 0.5 + 0.5;

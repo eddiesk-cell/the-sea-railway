@@ -203,6 +203,33 @@ export function createTrain(shared) {
       car.add(win);
     }
 
+    // ---- the inside of the left-hand wall, for the seat by the window ----
+    // A box shows nothing from within — its faces point outward — so the wall
+    // you look through is built as its own inward panels with a gap left for
+    // the glass. Only this one wall: anything else just clutters the frame.
+    const inner = makePaintMaterial(shared, {
+      color: '#6a5140', shadowTint: '#241a1e', rim: 0.5, bands: 2, grain: 0.24, grainScale: 2.0,
+    });
+    const seatMat = makePaintMaterial(shared, {
+      color: '#3e5a48', shadowTint: '#162224', rim: 0.5, bands: 2, grain: 0.2, grainScale: 2.2,
+    });
+    const inX = -(CAR_W / 2 - 0.07);
+    const WTOP = 4.16, WBOT = 2.86;
+    const header = new THREE.Mesh(box(0.12, 4.70 - WTOP, CAR_LEN - 0.2), inner);
+    header.position.set(inX, (4.70 + WTOP) / 2, 0);
+    car.add(header);
+    const sill = new THREE.Mesh(box(0.20, WBOT - 2.36, CAR_LEN - 0.2), inner);
+    sill.position.set(inX, (WBOT + 2.36) / 2, 0);
+    car.add(sill);
+    for (let m = -2; m <= 2; m++) {
+      const mull = new THREE.Mesh(box(0.12, WTOP - WBOT, 0.26), inner);
+      mull.position.set(inX, (WTOP + WBOT) / 2, m * (CAR_LEN / 5));
+      car.add(mull);
+    }
+    const bench = new THREE.Mesh(box(1.0, 0.20, CAR_LEN - 1.6), seatMat);
+    bench.position.set(inX + 0.56, 2.30, 0);
+    car.add(bench);
+
     for (const wz of [-CAR_LEN * 0.32, CAR_LEN * 0.32]) {
       for (const wx of [-RAIL_HALF, RAIL_HALF]) {
         const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.2, 10), steel);

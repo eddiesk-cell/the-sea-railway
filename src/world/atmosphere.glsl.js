@@ -72,6 +72,25 @@ float cloudField(vec3 dir, float t){
   return c;
 }
 
+// The shadow a cloud casts on the ground, sampled from the SAME field the sky
+// draws — look up at a cloud, look down, and its shadow is there. The sun is
+// treated as higher than it really is when projecting, or a sunset sun would
+// throw every shadow a mile downwind of its cloud.
+float cloudShadowAt(vec2 p, float t){
+  vec3 L = normalize(uSunDir);
+  float ly = max(L.y, 0.34);
+  // a lower deck than the one you see: physically the shadows would be
+  // 1500 units wide and the whole landscape would sit under one of them
+  vec2 uv = (p / 300.0 + L.xz / ly * 0.62) * 0.62;
+  uv += vec2(t * 0.030, t * 0.012);
+  float base = fbm(uv + fbm(uv * 0.55) * 0.9);
+  float detail = fbm(uv * 3.4 + t * 0.006);
+  float d = base * 0.78 + detail * 0.22;
+  float cover = mix(0.66, 0.42, uCloudAmt);
+  float c = smoothstep(cover - 0.02, cover + 0.20, d) * uCloudAmt;
+  return 1.0 - c * 0.66;
+}
+
 vec3 skyColor(vec3 dir, float t){
   float y = dir.y;
 

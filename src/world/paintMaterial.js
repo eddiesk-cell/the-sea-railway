@@ -118,6 +118,9 @@ export function makePaintMaterial(shared, opts = {}) {
         float fr  = fract(lam * b);
         q += smoothstep(0.42, 0.58, fr) / b;      // soften the terraces a little
 
+        float shade = cloudShadowAt(vWorld.xz, uTime);
+        q *= mix(1.0, shade, 0.85);
+
         vec3 sunCol = uSunTint * 0.85 + uHorizon * 0.16;
         vec3 col = mix(uShade * vInst, uBaseI, q);
         col *= mix(vec3(1.0), sunCol, q * 0.50);
@@ -132,7 +135,7 @@ export function makePaintMaterial(shared, opts = {}) {
         // ---- rim off the low sun ----
         float rimT = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.1);
         rimT *= clamp(dot(N, L) * 0.5 + 0.62, 0.0, 1.0);
-        col += uSunTint * rimT * uRim * 0.40;
+        col += uSunTint * rimT * uRim * 0.40 * shade;
 
         ${translucency > 0 ? /* glsl */`
         // ---- light through the leaf, not off it: only where the surface has
@@ -140,7 +143,7 @@ export function makePaintMaterial(shared, opts = {}) {
         {
           float back = smoothstep(0.42, -0.45, dot(N, L));
           float thru = pow(clamp(dot(-V, L) * 0.5 + 0.5, 0.0, 1.0), 3.8) * back;
-          col += uSunTint * (uBaseI * 2.4 + 0.02) * thru * uTrans;
+          col += uSunTint * (uBaseI * 2.4 + 0.02) * thru * uTrans * shade;
         }` : ''}
 
         // ---- the few real lamps: platform, train, whatever is passing ----

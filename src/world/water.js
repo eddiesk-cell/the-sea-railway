@@ -95,7 +95,8 @@ export function createWater(sharedUniforms) {
 
         // the sun's own path: ripples break it into a column of glitter
         float ss = max(dot(R, normalize(uSunDir)), 0.0);
-        refl += uSunTint * (pow(ss, 260.0) * 2.6 + pow(ss, 26.0) * 0.16);
+        refl += uSunTint * (pow(ss, 260.0) * 2.6 + pow(ss, 26.0) * 0.16)
+              * mix(1.0, cloudShadowAt(P.xz, uTime), 0.55);
 
         // ---- the body of the water ----
         float shallowness = exp(-dist * 0.0022);

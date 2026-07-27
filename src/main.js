@@ -216,6 +216,7 @@ const state = {
   lastInput: -1e9,
   blend: 1,          // 1 = fully cinematic
   keys: new Set(),
+  seat: 'window',
 };
 
 const cinePos = new THREE.Vector3(), cineLook = new THREE.Vector3();
@@ -237,6 +238,33 @@ function goFree() {
   const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
   state.yaw = e.y; state.pitch = e.x;
   state.vel.set(0, 0, 0);
+}
+
+// off -> a window seat -> the roof -> off again
+function rideNext() {
+  if (state.mode !== 'ride') {
+    state.mode = 'ride';
+    state.seat = 'window';
+    state.yaw = Math.PI / 2;       // looking out of the left-hand window
+    state.pitch = -0.05;
+    rideLabel(true, 'window seat');
+  } else if (state.seat === 'window') {
+    state.seat = 'roof';
+    rideLabel(true, 'on the roof');
+  } else {
+    state.mode = 'free';
+    state.pos.copy(camera.position);
+    state.pos.x = 5.6; state.pos.y = 2.6;
+    state.vel.set(0, 0, 0);
+    rideLabel(false);
+  }
+  mark();
+}
+
+const rideEl = document.getElementById('ride');
+function rideLabel(on, text) {
+  rideEl.textContent = text ? text + ' — R to move, F to let go' : '';
+  rideEl.classList.toggle('show', !!on);
 }
 
 function goCine() {
@@ -293,6 +321,7 @@ addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'h') { helpEl.classList.toggle('hidden'); return; }
   if (k === 'f') { state.mode === 'cine' ? goFree() : goCine(); mark(); return; }
+  if (k === 'r') { rideNext(); return; }
   if (k === 'p') { togglePaint(); return; }
   state.keys.add(k);
   if ('wasdqe c'.includes(k) || k === ' ' || k === 'shift') { goFree(); mark(); }
@@ -375,7 +404,18 @@ function frame() {
   // ---- drop back into the cinematic after a while alone ----
   if (state.mode === 'free' && clock - state.lastInput > 16) goCine();
 
-  if (state.mode === 'free') {
+  if (state.mode === 'ride') {
+    // a seat by the window, or up on the roof
+    const z = window.__trainZ ?? 0;
+    const sway = Math.sin(clock * 2.7) * 0.014 + Math.sin(clock * 5.3) * 0.006;
+    const bob  = Math.sin(clock * 3.9) * 0.020 + Math.sin(clock * 7.1) * 0.009;
+    if (state.seat === 'roof') camera.position.set(Math.sin(clock * 1.3) * 0.05, 6.55 + bob, z + 30);
+    else                        camera.position.set(0.16, 3.36 + bob, z + 26);
+    camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, sway, 'YXZ'));
+    shared.uLamps.value[2].set(0, 4.5, z + 26, 9);
+    shared.uLampCols.value[2].setRGB(0.30, 0.21, 0.12);
+  } else if (state.mode === 'free') {
+    shared.uLamps.value[2].w = 0;
     const sp = (state.keys.has('shift') ? 46 : 15);
     fwd.set(0, 0, -1).applyEuler(new THREE.Euler(state.pitch, state.yaw, 0, 'YXZ'));
     right.set(1, 0, 0).applyEuler(new THREE.Euler(0, state.yaw, 0, 'YXZ'));
@@ -399,6 +439,7 @@ function frame() {
     camera.position.copy(state.pos);
     camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, 0, 'YXZ'));
   } else {
+    shared.uLamps.value[2].w = 0;
     cineAt(clock * 1.0);
     tmpMat.lookAt(cinePos, cineLook, UP);
     tmpQuat.setFromRotationMatrix(tmpMat);
@@ -426,24 +467,17 @@ function frame() {
   sky.uniforms.uSunTint.value.copy(shared.uSunTint.value);
   sky.uniforms.uCloudAmt.value = shared.uCloudAmt.value;
 
-  // ---- the train ----
-  const CYCLE = 150, RUN = 74;
-  const tt = clock % CYCLE;
-  if (tt < RUN) {
-    const u = tt / RUN;
-    const z = 980 - u * 2560;
-    train.group.visible = true;
-    train.group.position.set(0, 0, z);
-    trainHead.set(0, 3.4, z - 9);
-    water.uniforms.uGlowC.value.set(trainHead.x, 3.4, trainHead.z);
-    water.uniforms.uGlowCr.value = 7.5;
-    shared.uLamps.value[1].set(trainHead.x, trainHead.y, trainHead.z, 48);
-    shared.uLampCols.value[1].setRGB(0.26, 0.20, 0.12);
-  } else {
-    train.group.visible = false;
-    water.uniforms.uGlowC.value.set(0, -999, 0);
-    shared.uLamps.value[1].set(0, 0, 0, 0);
-  }
+  // ---- the train: always running, always somewhere on the line ----
+  const LOOP = 4600, SPEED = 30;
+  const z = 2300 - ((clock * SPEED) % LOOP);
+  train.group.visible = true;
+  train.group.position.set(0, 0, z);
+  trainHead.set(0, 3.4, z - 9);
+  water.uniforms.uGlowC.value.set(trainHead.x, 3.4, trainHead.z);
+  water.uniforms.uGlowCr.value = 7.5;
+  shared.uLamps.value[1].set(trainHead.x, trainHead.y, trainHead.z, 48);
+  shared.uLampCols.value[1].setRGB(0.26, 0.20, 0.12);
+  window.__trainZ = z;
 
   spirits.update(clock);
   lanterns.update(clock);
