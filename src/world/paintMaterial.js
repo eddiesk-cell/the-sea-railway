@@ -25,6 +25,7 @@ export function makePaintMaterial(shared, opts = {}) {
     flatShading = false,
     depthWrite = true,
     sway = 0,               // wind, for things that grow
+    translucency = 0,       // light coming THROUGH the surface, for foliage
   } = opts;
 
   const base = new THREE.Color(color).convertSRGBToLinear();
@@ -46,6 +47,7 @@ export function makePaintMaterial(shared, opts = {}) {
     uFogDensity:{ value: fogDensity },
     uCamPos:    { value: new THREE.Vector3() },
     uOpacity:   { value: opacity },
+    uTrans:     { value: translucency },
   }, shared);
 
   const mat = new THREE.ShaderMaterial({
@@ -89,7 +91,7 @@ export function makePaintMaterial(shared, opts = {}) {
       uniform float uTime;
       uniform vec3  uBase, uShade, uEmissive, uFogColor, uCamPos;
       uniform float uEmiStr, uRim, uBands, uWrap, uGrain, uGrainScale;
-      uniform float uFogDensity, uOpacity;
+      uniform float uFogDensity, uOpacity, uTrans;
       uniform vec4 uLamps[3];       // xyz position, w range (0 = off)
       uniform vec3 uLampCols[3];
       varying vec3 vWorld;
@@ -125,12 +127,21 @@ export function makePaintMaterial(shared, opts = {}) {
         // turns the same grey and the reds stop being red
         float up = N.y * 0.5 + 0.5;
         vec3 ambient = mix(uHorizon * 0.55, uZenith * 1.5 + uMidSky * 0.6, up);
-        col += uBaseI * ambient * 0.78 + ambient * 0.022;
+        col += uBaseI * ambient * 1.05 + ambient * 0.007;
 
         // ---- rim off the low sun ----
         float rimT = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.1);
         rimT *= clamp(dot(N, L) * 0.5 + 0.62, 0.0, 1.0);
         col += uSunTint * rimT * uRim * 0.40;
+
+        ${translucency > 0 ? /* glsl */`
+        // ---- light through the leaf, not off it: only where the surface has
+        //      its back to the sun, so a canopy lights at its edges ----
+        {
+          float back = smoothstep(0.42, -0.45, dot(N, L));
+          float thru = pow(clamp(dot(-V, L) * 0.5 + 0.5, 0.0, 1.0), 3.8) * back;
+          col += uSunTint * (uBaseI * 2.4 + 0.02) * thru * uTrans;
+        }` : ''}
 
         // ---- the few real lamps: platform, train, whatever is passing ----
         for (int i = 0; i < 3; i++){

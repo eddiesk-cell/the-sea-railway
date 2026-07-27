@@ -86,8 +86,8 @@ scene.add(grass.mesh);
 
 // --- far country: headlands stacked into the haze ---
 {
-  const far = makePaintMaterial(shared, { color: '#1b2628', shadowTint: '#080f18', rim: 0.8, bands: 2, grain: 0.1 });
-  const far2 = makePaintMaterial(shared, { color: '#212c31', shadowTint: '#0a121c', rim: 0.9, bands: 2, grain: 0.1 });
+  const far = makePaintMaterial(shared, { color: '#39482a', shadowTint: '#16241a', rim: 0.55, bands: 2, grain: 0.1 });
+  const far2 = makePaintMaterial(shared, { color: '#43512f', shadowTint: '#1a281c', rim: 0.6, bands: 2, grain: 0.1 });
   // low headlands, a long way out — the plain has to read as endless
   const ridges = [
     [-1420, -2600, 430,  62, far],
@@ -115,6 +115,14 @@ scene.add(grass.mesh);
   const forest = createForest(shared, shoulders.map(({ at, r, h }) => ({ at, r, h })));
   scene.add(forest.group);
   window.__trees = forest.count;
+
+  // the grass needs to know where the land is, and it uses the same dome
+  // formula the trees are planted with, so wood and meadow sit on one surface
+  const land = [
+    ...shoulders.map(({ at, r, h }) => [at.x, at.z, r * 0.94, h]),
+    ...ridges.map(([x, z, r, h]) => [x, z, r * 0.94, h]),
+  ].slice(0, 6);
+  land.forEach(([x, z, r, h], i) => grass.uniforms.uHills.value[i].set(x, z, r, h));
 }
 
 // --- a torii standing in the shallows, close enough to touch ---

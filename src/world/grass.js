@@ -59,6 +59,10 @@ export function createGrass(shared, opts = {}) {
     uHeight:  { value: 0.95 },
     uDensity: { value: 1.0 },
     uBathXZ:  { value: new THREE.Vector2(-268, -198) },
+    // up to six domes of land: xy = centre, z = radius, w = height.
+    // The same formula the trees are planted with, so grass and wood agree.
+    uHills:   { value: Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+    uHillBase:{ value: -10.0 },
     uBlade:   { value: new THREE.Color('#5f7a33').convertSRGBToLinear() },
     uBladeLo: { value: new THREE.Color('#1a2a22').convertSRGBToLinear() },
     uFogColor:{ value: new THREE.Vector3(0.5, 0.5, 0.55) },
@@ -70,8 +74,9 @@ export function createGrass(shared, opts = {}) {
     vertexShader: /* glsl */`
       precision highp float;
       attribute float aSeed;
-      uniform float uTime, uTile, uTiles, uPerTile, uRadius, uHeight, uDensity;
+      uniform float uTime, uTile, uTiles, uPerTile, uRadius, uHeight, uDensity, uHillBase;
       uniform vec2  uCamXZ, uBathXZ;
+      uniform vec4  uHills[6];
       varying vec3  vWorld, vNrm;
       varying float vH, vTint, vLean;
       ${NOISE}
@@ -83,6 +88,21 @@ export function createGrass(shared, opts = {}) {
       }
       // two octaves is plenty when it runs seven million times a frame
       float n2(vec2 p){ return vnoise(p) * 0.66 + vnoise(p * 2.17 + 5.1) * 0.34; }
+
+      // the height of the land under a point, and how far inland it is
+      float landAt(vec2 p, out float inland){
+        float y = -1e5; inland = 0.0;
+        for (int i = 0; i < 6; i++){
+          float r = uHills[i].z;
+          if (r <= 0.0) continue;
+          float d = distance(p, uHills[i].xy);
+          if (d >= r) continue;
+          float t = d / r;
+          y = max(y, uHillBase + uHills[i].w * sqrt(max(0.0, 1.0 - t * t)) * 0.93);
+          inland = max(inland, smoothstep(0.99, 0.80, t));
+        }
+        return y;
+      }
 
       void main(){
         // ---- which tile, and where in it ----
@@ -97,14 +117,22 @@ export function createGrass(shared, opts = {}) {
         vec2 wxz = (cell + r1.xy) * uTile;
         float ax = abs(wxz.x);
 
+        // ---- is this point on dry land? ----
+        float inland;
+        float landY = landAt(wxz, inland);
+        float onLand = step(-1e4, landY) * inland;
+
         // ---- where grass is allowed to grow ----
         float bank  = smoothstep(3.7, 4.5, ax) * (1.0 - smoothstep(5.6, 10.5, ax));
         float shall = smoothstep(0.56, 0.78, n2(wxz * 0.021 + 11.0)) * smoothstep(6.0, 9.5, ax);
-        float dens  = clamp(bank + shall * 0.80, 0.0, 1.0) * uDensity;
-        dens *= smoothstep(150.0, 240.0, distance(wxz, uBathXZ));   // not on the headland
+        // meadow: dense on the hillsides, thinning in patches the way real turf does
+        float meadow = onLand * mix(0.72, 1.0, smoothstep(0.34, 0.72, n2(wxz * 0.035 + 41.0)));
 
-        // ---- ground: the drowned shelf, then open water ----
-        float ground = 0.28 * (1.0 - smoothstep(5.2, 7.4, ax));
+        float dens  = clamp(max(bank + shall * 0.80, meadow), 0.0, 1.0) * uDensity;
+        dens *= smoothstep(95.0, 150.0, distance(wxz, uBathXZ));   // the town keeps its floor
+
+        // ---- ground: the hill if there is one, else the drowned shelf, then water ----
+        float ground = mix(0.28 * (1.0 - smoothstep(5.2, 7.4, ax)), landY, onLand);
 
         float dist = distance(wxz, uCamXZ);
         float fade = 1.0 - smoothstep(uRadius * 0.40, uRadius, dist);
@@ -115,7 +143,8 @@ export function createGrass(shared, opts = {}) {
         }
 
         // ---- this blade ----
-        float tall = uHeight * (0.55 + r1.z * 0.95) * mix(1.0, 0.68, smoothstep(6.0, 16.0, ax));
+        float tall = uHeight * (0.55 + r1.z * 0.95)
+                   * mix(mix(1.0, 0.68, smoothstep(6.0, 16.0, ax)), 0.62, onLand);
         float wid  = 0.030 * (0.70 + r2.x * 0.65);
         float ang  = r2.y * 6.2831853;
         float hf   = uv.y;

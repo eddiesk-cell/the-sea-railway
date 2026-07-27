@@ -63,7 +63,7 @@ function pineJp(rnd) {
     const f = i / (plates - 1);
     const r = (0.32 - f * 0.13) * (0.85 + rnd() * 0.3);
     const p = new THREE.SphereGeometry(r, 8, 5);
-    p.scale(1, 0.26 + rnd() * 0.10, 1);
+    p.scale(1, 0.34 + rnd() * 0.12, 1);
     p.translate(lean * (0.18 + f * 0.4) + (rnd() - 0.5) * 0.10,
                 0.56 + f * 0.36,
                 (rnd() - 0.5) * 0.12);
@@ -104,15 +104,15 @@ function bamboo(rnd) {
 
 const SPECIES = [
   { name: 'fir',       make: conifer,   weight: 0.24, hMin: 13, hMax: 25,
-    color: '#16211d', shadow: '#070c12', rim: 0.30 },
+    color: '#2f4a35', shadow: '#132a26', rim: 0.34, trans: 0.55 },
   { name: 'broadleaf', make: broadleaf, weight: 0.30, hMin: 10, hMax: 19,
-    color: '#22321f', shadow: '#0a1114', rim: 0.34 },
+    color: '#46592a', shadow: '#1b2c1c', rim: 0.40, trans: 1.05 },
   { name: 'pine',      make: pineJp,    weight: 0.17, hMin: 9,  hMax: 17,
-    color: '#1a2b22', shadow: '#080e14', rim: 0.36 },
+    color: '#35492f', shadow: '#152720', rim: 0.42, trans: 0.75 },
   { name: 'blossom',   make: blossom,   weight: 0.11, hMin: 7,  hMax: 13,
-    color: '#a5757c', shadow: '#3d2733', rim: 0.62 },
+    color: '#bb9498', shadow: '#513c47', rim: 0.66, trans: 0.95 },
   { name: 'bamboo',    make: bamboo,    weight: 0.18, hMin: 9,  hMax: 16,
-    color: '#2c3d22', shadow: '#0d1414', rim: 0.42 },
+    color: '#5d7431', shadow: '#26361d', rim: 0.50, trans: 1.20 },
 ];
 
 // `sites` is a list of { at: Vector3 (base of the hill), r, h } — trees are
@@ -125,7 +125,7 @@ export function createForest(shared, sites, seed = 4242) {
   const geos = SPECIES.map(sp => [sp.make(rnd), sp.make(rnd), sp.make(rnd)]);
   const mats = SPECIES.map(sp => makePaintMaterial(shared, {
     color: sp.color, shadowTint: sp.shadow, rim: sp.rim, bands: 2,
-    grain: 0.22, grainScale: 0.55,
+    grain: 0.22, grainScale: 0.55, translucency: sp.trans,
   }));
 
   const buckets = SPECIES.map(() => [[], [], []]);
