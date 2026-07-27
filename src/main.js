@@ -12,6 +12,21 @@ import { buildLaputa } from './regions/laputa.js';
 import { buildIronTown } from './regions/ironTown.js';
 import { buildMarketChipping } from './regions/marketChipping.js';
 import { buildSlagRavine } from './regions/slagRavine.js';
+import { buildMarshHouse } from './regions/marshHouse.js';
+import { buildPoppyHill } from './regions/poppyHill.js';
+import { buildHiddenCove } from './regions/hiddenCove.js';
+import { buildOceanWaves } from './regions/oceanWaves.js';
+import { buildHillside } from './regions/hillside.js';
+import { buildSafflower } from './regions/safflower.js';
+import { buildTamaHills } from './regions/tamaHills.js';
+import { buildTheRotary } from './regions/theRotary.js';
+import { buildCatBureau } from './regions/catBureau.js';
+import { buildTheGarden } from './regions/theGarden.js';
+import { buildHortTown } from './regions/hortTown.js';
+import { buildCrookedHouse } from './regions/crookedHouse.js';
+import { buildMeadow1920 } from './regions/meadow1920.js';
+import { buildTheTower } from './regions/theTower.js';
+import { buildTheSketch } from './regions/theSketch.js';
 import { createRain } from './world/rain.js';
 import { createSound, windAt } from './world/sound.js';
 import { createWater } from './world/water.js';
@@ -116,7 +131,22 @@ scene.add(grass.mesh);
 // builder.
 const BUILDERS = {
   drowned: () => buildDrownedRoad(shared),
+  marsh:   () => buildMarshHouse(shared),
+  poppy:   () => buildPoppyHill(shared),
   koriko:  () => buildKoriko(shared),
+  cove:    () => buildHiddenCove(shared),
+  ocean:   () => buildOceanWaves(shared),
+  hillside:() => buildHillside(shared),
+  safflower: () => buildSafflower(shared),
+  tama:    () => buildTamaHills(shared),
+  rotary:  () => buildTheRotary(shared),
+  cats:    () => buildCatBureau(shared),
+  garden:  () => buildTheGarden(shared),
+  hort:    () => buildHortTown(shared),
+  crooked: () => buildCrookedHouse(shared),
+  wind1920:() => buildMeadow1920(shared),
+  tower:   () => buildTheTower(shared),
+  sketch:  () => buildTheSketch(shared),
   bus:     () => buildBusStop(shared),
   ink:     () => buildInkCountry(shared),
   cedar:   () => buildCedarForest(shared),
@@ -249,6 +279,8 @@ function applyAtmosphere(z) {
   shared.uDeckH.value.set(a.decks[0][1], a.decks[1][1], a.decks[2][1]);
   shared.uDeckAmt.value = a.deckAmt;
   water.uniforms.uFogColor.value.copy(a.fog);
+  water.uniforms.uDeep.value.copy(a.waterDeep);
+  water.uniforms.uShallow.value.copy(a.waterShallow);
   grass.uniforms.uFogColor.value.copy(a.fog);
 
   // the one warm thing in view gets to paint itself onto the water, and which
@@ -400,6 +432,7 @@ function rideLabel(on, text, tail = 'R to move, F to let go') {
 // because the line is supposed to come round again.
 // ===========================================================================
 const CAR_PITCH = 18.6;              // one carriage plus its coupling
+const SEAT_Z = 2.83;                 // half a window bay, so no mullion sits in the eye
 
 const line = {
   z: REGIONS[0].station,
@@ -704,12 +737,18 @@ function frame() {
     // Dead centre of a carriage, not near its end — sit by the join and the
     // wall runs out a metre to your left and the window stops being a window.
     const z = line.z;
-    const sway = Math.sin(clock * 2.7) * 0.014 + Math.sin(clock * 5.3) * 0.006;
-    const bob  = Math.sin(clock * 3.9) * 0.020 + Math.sin(clock * 7.1) * 0.009;
+    // A train on rails does not shake, it FLOATS. The real motion is the
+    // bogies hunting side to side at well under a hertz, a slow roll following
+    // it, and almost nothing vertical. What reads as shaking is fast jitter,
+    // which nothing running on steel actually does — the first pass had it at
+    // four times a second and it felt like a bus on a farm track.
+    const drift = Math.sin(clock * 0.61) * 0.034 + Math.sin(clock * 1.37) * 0.011;
+    const sway  = Math.sin(clock * 0.55) * 0.0060 + Math.sin(clock * 1.31) * 0.0020;
+    const bob   = Math.sin(clock * 0.93) * 0.0085 + Math.sin(clock * 2.10) * 0.0030;
     // half a mullion pitch off centre: sit level with one and it stands in the
     // middle of everything you look at
-    if (state.seat === 'roof') camera.position.set(Math.sin(clock * 1.3) * 0.05, 6.55 + bob, z + CAR_PITCH);
-    else                        camera.position.set(0.0, 3.50 + bob, z + 1.70);
+    if (state.seat === 'roof') camera.position.set(drift * 1.7, 6.55 + bob, z + CAR_PITCH);
+    else                        camera.position.set(drift, 3.50 + bob, z + SEAT_Z);
     camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, sway, 'YXZ'));
     shared.uLamps.value[2].set(-0.6, 4.5, z + 1.70, 5.5);
     shared.uLampCols.value[2].setRGB(0.130, 0.088, 0.045);

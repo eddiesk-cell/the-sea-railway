@@ -6,6 +6,83 @@ import { patchHalo } from './bathhouse.js';
 const RAIL_HALF = 0.78;
 const TRACK_LEN = 11000;
 
+// ---------------------------------------------------------------------------
+// The pane in the carriage window.
+//
+// Four things, all faint, which together are the difference between glass and
+// a hole cut in a wall:
+//   the sky lying along the top of the pane, because glass at a shallow angle
+//   is a mirror; two long streaks of glare drifting slowly across it; a haze
+//   of dust and old handprints that stays put; and the frame brightening at
+//   the edges where the glass is bedded into it.
+// All of it is additive and all of it is WEAK — the first pass was twice this
+// strength and over a bright morning sky it milked the whole window out, which
+// is a dirty window, not a clean one. It borrows the horizon and sun
+// colours from the sky the region is currently in, so the glare in the Ink
+// Country is grey paper and the glare over the Adriatic is white noon — and
+// it fades out entirely where the world is ink, since brushed paper has no
+// window in it.
+// ---------------------------------------------------------------------------
+function glassMaterial(shared, paneW, paneH) {
+  return new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uPane: { value: new THREE.Vector2(paneW, paneH) } }, shared),
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: /* glsl */`
+      precision highp float;
+      uniform float uTime;
+      uniform float uInk;
+      uniform vec3 uHorizon;
+      uniform vec3 uSunTint;
+      uniform vec2 uPane;
+      varying vec2 vUv;
+
+      float h21(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+      float smear(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1,0)), f.x),
+                   mix(h21(i + vec2(0,1)), h21(i + vec2(1,1)), f.x), f.y);
+      }
+
+      void main(){
+        // Work in METRES along the pane, not in uv. The pane is seventeen
+        // metres long and the eye only ever sees about three of them, so
+        // anything sized in uv is either invisible or one enormous smear.
+        vec2 p = vUv * uPane;
+
+        // the sky lying along the top of the pane
+        float sky = pow(smoothstep(0.35, 1.0, vUv.y), 2.0) * 0.085;
+
+        // two streaks, leaning, sliding past at walking pace. A reflection in
+        // a moving window travels; one that sits still is a smudge.
+        float d1 = (p.x * 0.92 + p.y * 0.55 - uTime * 0.42) / 2.6;
+        float d2 = (p.x * 0.80 - p.y * 0.40 - uTime * 0.26) / 4.1;
+        float g1 = exp(-pow(fract(d1) - 0.5, 2.0) * 38.0) * 0.095;
+        float g2 = exp(-pow(fract(d2) - 0.5, 2.0) * 110.0) * 0.055;
+
+        // dust and old hands, fixed to the glass
+        float dust = smear(p * 0.9) * 0.6 + smear(p * 3.1) * 0.4;
+        dust = smoothstep(0.58, 1.0, dust) * 0.030;
+
+        // and the bedding along the top and bottom edges
+        float edge = (1.0 - smoothstep(0.0, 0.13, vUv.y)) + smoothstep(0.87, 1.0, vUv.y);
+        edge = clamp(edge, 0.0, 1.0) * 0.045;
+
+        vec3 col = uHorizon * (sky + edge) + uSunTint * (g1 + g2) + vec3(0.9, 0.92, 1.0) * dust;
+        gl_FragColor = vec4(col * (1.0 - uInk * 0.85), 1.0);
+      }`,
+  });
+}
+
 // The single line of track running out across the flooded plain, the little
 // platform you are standing on, and the train that comes through it.
 export function createRailway(shared) {
@@ -206,8 +283,8 @@ export function createTrain(shared) {
     car.add(skirt);
 
     for (const sx of [-1, 1]) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN * 0.88, 1.25), winMat);
-      win.position.set(sx * (CAR_W / 2 + 0.03), 3.45, 0);
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN * 0.88, 1.62), winMat);
+      win.position.set(sx * (CAR_W / 2 + 0.03), 3.61, 0);
       win.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
       car.add(win);
     }
@@ -223,7 +300,15 @@ export function createTrain(shared) {
       color: '#26382e', shadowTint: '#0c1216', rim: 0.5, bands: 2, grain: 0.2, grainScale: 2.2,
     });
     const inX = -(CAR_W / 2 - 0.07);
-    const WTOP = 4.16, WBOT = 2.86, FLOOR = 1.46;
+    // A picture window, not a letterbox. It grew upward — that is where the
+    // view is, since a train window's whole job is mountains and sky — and
+    // the mullions went from five to three, so the pane you are actually
+    // sitting in front of is five and a half metres wide instead of three.
+    // The ceiling of it is set by the eye, not by taste: sitting 1.88 m off
+    // the glass with a 52° lens, anything above 4.35 is outside the frame —
+    // and a window whose frame you cannot see is not a window, it is a hole,
+    // which is exactly how the first, greedier version of this came out.
+    const WTOP = 4.34, WBOT = 2.72, FLOOR = 1.46;
     const header = new THREE.Mesh(box(0.12, 4.68 - WTOP, CAR_LEN - 0.2), inner);
     header.position.set(inX, (4.68 + WTOP) / 2, 0);
     car.add(header);
@@ -232,11 +317,23 @@ export function createTrain(shared) {
     const sill = new THREE.Mesh(box(0.20, WBOT - FLOOR, CAR_LEN - 0.2), inner);
     sill.position.set(inX, (WBOT + FLOOR) / 2, 0);
     car.add(sill);
-    for (let m = -2; m <= 2; m++) {
-      const mull = new THREE.Mesh(box(0.12, WTOP - WBOT, 0.26), inner);
-      mull.position.set(inX, (WTOP + WBOT) / 2, m * (CAR_LEN / 5));
+    for (let m = -1; m <= 1; m++) {
+      const mull = new THREE.Mesh(box(0.12, WTOP - WBOT, 0.22), inner);
+      mull.position.set(inX, (WTOP + WBOT) / 2, m * (CAR_LEN / 3));
       car.add(mull);
     }
+    // ---- the glass itself ----
+    // Until now the window was a hole. A hole and a pane look identical until
+    // something crosses the pane, so this adds the two things that only glass
+    // does: the sky lying along the top of it, and a soft streak of glare
+    // sliding across as the world goes by. It is additive and weak on purpose
+    // — glass you notice is a dirty window, glass you don't notice is a hole.
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN - 0.24, WTOP - WBOT),
+                                 glassMaterial(shared, CAR_LEN - 0.24, WTOP - WBOT));
+    glass.position.set(inX + 0.05, (WTOP + WBOT) / 2, 0);
+    glass.rotation.y = Math.PI / 2;
+    glass.renderOrder = 30;
+    car.add(glass);
     // and the ends, so the carriage is a room rather than a strip of wall
     for (const ez of [-1, 1]) {
       const end = new THREE.Mesh(box(2.90, 4.68 - FLOOR, 0.14), inner);
@@ -253,8 +350,10 @@ export function createTrain(shared) {
     const bench = new THREE.Mesh(box(1.0, 0.20, CAR_LEN - 1.6), seatMat);
     bench.position.set(inX + 0.56, 2.30, 0);
     car.add(bench);
-    const backRest = new THREE.Mesh(box(0.14, 0.62, CAR_LEN - 1.6), seatMat);
-    backRest.position.set(inX + 0.13, 2.68, 0);
+    // the seat back stops below the glass now, or it eats the bottom of the
+    // window it is supposed to be sitting under
+    const backRest = new THREE.Mesh(box(0.14, 0.40, CAR_LEN - 1.6), seatMat);
+    backRest.position.set(inX + 0.13, 2.50, 0);
     car.add(backRest);
     for (const bz of [-CAR_LEN * 0.28, 0, CAR_LEN * 0.28]) {
       const leg = new THREE.Mesh(box(0.9, 0.72, 0.16), inner);

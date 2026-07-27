@@ -11,22 +11,40 @@ browser tab.
 **On the films themselves:** these are the *places*, not the characters. Figures
 in each region are original silhouettes. The tribute is to the landscapes.
 
-## Built
+## Built — all twenty-seven
 
 | # | Region | Film | Year | State |
 |---|---|---|---|---|
 | 1 | **The Sea Railway** — flooded plain, the bathhouse, the torii | Spirited Away | 2001 | ✅ live |
 | 2 | **The Drowned Road** — a coast road under the tide, and a shoal of fish that are also waves | Ponyo | 2008 | ✅ live |
+| 3 | **The Marsh House** — a tidal inlet at dusk, and a house across the water with two windows lit | When Marnie Was There | 2014 | ✅ live |
+| 4 | **Poppy Hill** — a port town on a slope, and a hoist of signal flags on a headland | From Up on Poppy Hill | 2011 | ✅ live |
 | 5 | **Koriko** — a harbour town stacked up a hill, and a clock tower | Kiki's Delivery Service | 1989 | ✅ live |
+| 6 | **The Hidden Cove** — limestone, an inlet, and one red seaplane | Porco Rosso | 1992 | ✅ live |
+| 7 | **Ocean Waves** — a sea wall, tetrapods, and a heat haze that has taken the colour out of everything | Ocean Waves | 1993 | ✅ live |
 | 8 | **The Bus Stop** — rice paddies at night, hard rain, one lamp, the camphor | My Neighbour Totoro | 1988 | ✅ live |
+| 9 | **The Hillside** — a pond after dark, and fireflies. Nothing else, on purpose | Grave of the Fireflies | 1988 | ✅ live |
+| 10 | **Safflower Fields** — terraces at first light, red safflower in rows | Only Yesterday | 1991 | ✅ live |
+| 11 | **Tama Hills** — old woodland, and the straight line where it stops | Pom Poko | 1994 | ✅ live |
+| 12 | **The Rotary** — a railing, a lit shop, and the town below in the dawn | Whisper of the Heart | 1995 | ✅ live |
+| 13 | **The Cat Bureau** — a town at a tenth scale, under a flowerpot the size of a gasometer | The Cat Returns | 2002 | ✅ live |
+| 14 | **The Garden** — the world from four inches up: grass fourteen metres tall | Arrietty | 2010 | ✅ live |
 | 15 | **The Ink Country** — Huangshan in slabs, a sea of cloud, cliff pines, bamboo | The Tale of the Princess Kaguya | 2013 | ✅ live |
 | 16 | **The Cedar Forest** — columns, a river over stones, lights among the trunks | Princess Mononoke | 1997 | ✅ live |
 | 17 | **Iron Town** — a walled works on a lake, and a hill it has eaten | Princess Mononoke | 1997 | ✅ live |
 | 18 | **The Meadow** — alpine flowers, and something walking the skyline | Howl's Moving Castle | 2004 | ✅ live |
 | 19 | **Market Chipping** — a hill town of tall leaning houses, bunting, a tram | Howl's Moving Castle | 2004 | ✅ live |
+| 20 | **Hort Town** — a walled ochre port, and a tower on an island | Tales from Earthsea | 2006 | ✅ live |
+| 21 | **The Crooked House** — rain on an English lane, and one lit doorway | Earwig and the Witch | 2020 | ✅ live |
 | 22 | **The Valley of the Wind** — windmills, ochre dust, a forest lit from inside | Nausicaä | 1984 | ✅ live |
 | 23 | **Slag Ravine** — a mining town in terraces, a viaduct over the roofs | Castle in the Sky | 1986 | ✅ live |
 | 24 | **Laputa** — the island, its root, and the vines hanging off it | Castle in the Sky | 1986 | ✅ live |
+| 25 | **The Meadow of 1920** — long grass, an easel, and a glider that never lands | The Wind Rises | 2013 | ✅ live |
+| 26 | **The Tower** — a wood with something in it that nobody built | The Boy and the Heron | 2023 | ✅ live |
+| 27 | **The Sketch** — white paper, a few lines, and colour only where it matters | My Neighbors the Yamadas | 1999 | ✅ live |
+
+**Twenty-four films, twenty-seven stops.** Mononoke, Howl's and Laputa each earn
+two, because each has two landscapes that are nothing like each other.
 
 **Sound.** Every region declares its own soundscape and those levels cross-fade
 at the border exactly like the sky does, so a place is only ever heard where it
@@ -169,5 +187,8 @@ It needs almost nothing new in the world and everything new in the finish:
    forest, Market Chipping below the meadow, Slag Ravine under Laputa. Every
    film that earns two stops now has both of them. Plus **home** (**O**): pick a
    place and the camera circles it for as long as you leave it alone.
-7. **Stops.** Platforms, stepping off, a whistle that brings the train back.
-8. **The rest**, and the loop back to the beginning.
+7. ✅ **The rest of the line.** All twenty-seven countries laid, every film in
+   the catalogue on it, and the last stop is a blank page.
+8. **Stops.** Platforms, stepping off, a whistle that brings the train back —
+   and the places off the main line: the pool where the Deer God walks, the
+   village Ashitaka rode out of, the things you only find by getting down.

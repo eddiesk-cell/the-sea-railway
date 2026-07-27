@@ -10,6 +10,10 @@ import { samplePalette, sunDirection } from '../world/sky.js';
 //
 // Each also names a station — the point where the thing it was built for is
 // directly out of the window — and that is where the journey controls stop.
+// Get this wrong by a hundred metres and the region appears to be empty: the
+// house, the tower, the lit door are all still there, just not in the window
+// at the one moment anyone is looking. Check stationAt against the z the
+// subject was authored at, every time.
 //
 // `authored` is the zNear a region's geometry was originally written against.
 // Everything since is written against zero and simply slid into place, which
@@ -47,6 +51,38 @@ const ORDER = [
     },
   },
   {
+    id: 'marsh', stop: 3, title: 'The Marsh House', film: 'When Marnie Was There', year: 2014,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.60,
+    sound: { water: 0.55, wind: 0.55, leaves: 0.45, cry: 0.30 },
+    fogDensity: 0.00055, bloom: 1.20, sat: 1.02, vignette: 0.58, mist: 0.32, mistTop: 22,
+    // The last twenty minutes of light over a tidal flat: the sky has gone
+    // rose and the water is holding it, which is why the mud is the brightest
+    // thing in the region and the house is nearly a silhouette.
+    waterDeep: '#38384a', waterShallow: '#7d6f74',
+    palette: {
+      zenith:  [0.075, 0.105, 0.220], mid: [0.230, 0.215, 0.330],
+      horizon: [0.780, 0.520, 0.430], sun: [1.000, 0.720, 0.520],
+      fog:     [0.480, 0.400, 0.420],
+      sunY: 0.10, az: 1.22, cloud: 0.55, exposure: 0.94,
+    },
+  },
+  {
+    id: 'poppy', stop: 4, title: 'Poppy Hill', film: 'From Up on Poppy Hill', year: 2011,
+    length: 2700, stationAt: 1350,
+    ink: 0, wet: 0, wind: 0.85,
+    sound: { town: 0.75, water: 0.70, cry: 0.55, wind: 0.45 },
+    fogDensity: 0.00042, bloom: 0.92, sat: 1.08, vignette: 0.42, mist: 0.05, mistTop: 26,
+    // Eight in the morning in 1963, and nothing bad has happened yet.
+    waterDeep: '#0d2030', waterShallow: '#2b4a54',
+    palette: {
+      zenith:  [0.105, 0.230, 0.520], mid: [0.280, 0.440, 0.720],
+      horizon: [0.800, 0.820, 0.800], sun: [1.000, 0.950, 0.840],
+      fog:     [0.700, 0.760, 0.820],
+      sunY: 0.44, az: 1.10, cloud: 0.42, exposure: 0.88,
+    },
+  },
+  {
     id: 'koriko', stop: 5, title: 'Koriko', film: "Kiki's Delivery Service", year: 1989,
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.75,
@@ -59,6 +95,42 @@ const ORDER = [
       horizon: [0.860, 0.700, 0.480], sun: [1.000, 0.830, 0.560],
       fog:     [0.780, 0.700, 0.560],
       sunY: 0.20, az: 1.05, cloud: 0.52, exposure: 0.78,
+    },
+  },
+  {
+    id: 'cove', stop: 6, title: 'The Hidden Cove', film: 'Porco Rosso', year: 1992,
+    length: 2700, stationAt: 1350,
+    ink: 0, wet: 0, wind: 0.55,
+    sound: { water: 1.00, wind: 0.35, cry: 0.45 },
+    fogDensity: 0.00030, bloom: 0.70, sat: 1.02, vignette: 0.36, mist: 0.0, mistTop: 0,
+    // Directly overhead. The only region on the line with no low sun in it,
+    // because Porco is the only Ghibli film with no dusk in it — and the one
+    // that needed the exposure pulled hardest DOWN, because white limestone
+    // under a noon sun with any bloom at all is just a white rectangle.
+    waterDeep: '#062a3a', waterShallow: '#186370',
+    palette: {
+      zenith:  [0.055, 0.180, 0.520], mid: [0.170, 0.380, 0.680],
+      horizon: [0.560, 0.680, 0.740], sun: [0.900, 0.890, 0.820],
+      fog:     [0.520, 0.640, 0.700],
+      sunY: 0.86, az: 1.20, cloud: 0.22, exposure: 0.58,
+    },
+  },
+  {
+    id: 'ocean', stop: 7, title: 'Ocean Waves', film: 'Ocean Waves', year: 1993,
+    length: 2400, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.40,
+    sound: { water: 0.65, leaves: 0.70, town: 0.30, cry: 0.20, wind: 0.20 },
+    fogDensity: 0.00040, bloom: 0.80, sat: 0.94, vignette: 0.34, mist: 0.09, mistTop: 18,
+    // Three in the afternoon in August. Heat haze, not fog — the first pass
+    // ran the density and the mist so high that the region was a white sheet
+    // with a green stripe in it, which is what "hazy" always turns into if you
+    // reach for the fog slider instead of desaturating the far distance.
+    waterDeep: '#20404e', waterShallow: '#5a7c84',
+    palette: {
+      zenith:  [0.190, 0.300, 0.520], mid: [0.420, 0.510, 0.650],
+      horizon: [0.760, 0.770, 0.740], sun: [0.960, 0.930, 0.840],
+      fog:     [0.700, 0.720, 0.700],
+      sunY: 0.70, az: 1.05, cloud: 0.35, exposure: 0.70,
     },
   },
   {
@@ -75,6 +147,98 @@ const ORDER = [
       horizon: [0.062, 0.082, 0.130], sun: [0.150, 0.190, 0.290],
       fog:     [0.052, 0.070, 0.115],
       sunY: 0.16, cloud: 0.97, exposure: 1.30,
+    },
+  },
+  {
+    id: 'hillside', stop: 9, title: 'The Hillside', film: 'Grave of the Fireflies', year: 1988,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.30,
+    // the quietest mix on the line, and it stays that way
+    sound: { water: 0.22, wind: 0.30, leaves: 0.25 },
+    fogDensity: 0.00080, bloom: 1.30, sat: 0.86, vignette: 0.78, mist: 0.40, mistTop: 24,
+    waterDeep: '#0a1018', waterShallow: '#16202a',
+    palette: {
+      zenith:  [0.022, 0.032, 0.058], mid: [0.048, 0.062, 0.096],
+      horizon: [0.110, 0.120, 0.150], sun: [0.230, 0.240, 0.280],
+      fog:     [0.075, 0.086, 0.110],
+      sunY: 0.07, az: 1.15, cloud: 0.62, exposure: 1.22,
+    },
+  },
+  {
+    id: 'safflower', stop: 10, title: 'Safflower Fields', film: 'Only Yesterday', year: 1991,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.50,
+    sound: { leaves: 0.55, wind: 0.45, cry: 0.30, stream: 0.20 },
+    fogDensity: 0.00050, bloom: 1.05, sat: 1.10, vignette: 0.46, mist: 0.28, mistTop: 26,
+    // First light on a hill farm: the mist still in the terraces and the sun
+    // only just onto the top one.
+    palette: {
+      zenith:  [0.115, 0.150, 0.290], mid: [0.330, 0.310, 0.400],
+      horizon: [0.880, 0.640, 0.450], sun: [1.000, 0.800, 0.520],
+      fog:     [0.620, 0.530, 0.470],
+      sunY: 0.12, az: 1.20, cloud: 0.48, exposure: 0.90,
+    },
+  },
+  {
+    id: 'tama', stop: 11, title: 'Tama Hills', film: 'Pom Poko', year: 1994,
+    // the station sits exactly ON the boundary, so the window holds wood on one
+    // side of the frame and cut earth on the other — which is the whole region
+    length: 2800, stationAt: 1330,
+    ink: 0, wet: 0, wind: 0.55,
+    sound: { leaves: 0.60, wind: 0.35, town: 0.40, knock: 0.55, creak: 0.25 },
+    fogDensity: 0.00055, bloom: 0.85, sat: 0.94, vignette: 0.50, mist: 0.16, mistTop: 30,
+    // Flat overcast, which is the right light for this: no sun to make the cut
+    // earth beautiful.
+    palette: {
+      zenith:  [0.240, 0.290, 0.380], mid: [0.430, 0.470, 0.530],
+      horizon: [0.660, 0.670, 0.660], sun: [0.780, 0.780, 0.760],
+      fog:     [0.580, 0.600, 0.600],
+      sunY: 0.50, az: 1.10, cloud: 0.86, exposure: 0.78,
+    },
+  },
+  {
+    id: 'rotary', stop: 12, title: 'The Rotary', film: 'Whisper of the Heart', year: 1995,
+    length: 2700, stationAt: 1290,
+    ink: 0, wet: 0, wind: 0.45,
+    sound: { town: 0.55, wind: 0.35, leaves: 0.30, cry: 0.20 },
+    fogDensity: 0.00075, bloom: 1.10, sat: 1.06, vignette: 0.52, mist: 0.20, mistTop: 26,
+    // The half hour before sunrise, with the street lights still on down there.
+    palette: {
+      zenith:  [0.085, 0.115, 0.245], mid: [0.270, 0.265, 0.360],
+      horizon: [0.840, 0.610, 0.470], sun: [1.000, 0.790, 0.540],
+      fog:     [0.560, 0.500, 0.470],
+      sunY: 0.09, az: 1.25, cloud: 0.54, exposure: 0.86,
+    },
+  },
+  {
+    id: 'cats', stop: 13, title: 'The Cat Bureau', film: 'The Cat Returns', year: 2002,
+    length: 2400, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.50,
+    sound: { leaves: 0.45, wind: 0.35, town: 0.45, cry: 0.20 },
+    fogDensity: 0.00042, bloom: 1.10, sat: 1.12, vignette: 0.42, mist: 0.08, mistTop: 18,
+    // Late afternoon, low and warm, so a town the size of a hedge throws long
+    // shadows across its own square.
+    palette: {
+      zenith:  [0.130, 0.230, 0.450], mid: [0.330, 0.430, 0.620],
+      horizon: [0.860, 0.720, 0.520], sun: [1.000, 0.860, 0.620],
+      fog:     [0.720, 0.660, 0.560],
+      sunY: 0.19, az: 1.18, cloud: 0.44, exposure: 0.82,
+    },
+  },
+  {
+    id: 'garden', stop: 14, title: 'The Garden', film: 'Arrietty', year: 2010,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.85,
+    sound: { leaves: 1.00, wind: 0.45, stream: 0.18, cry: 0.15 },
+    fogDensity: 0.00048, bloom: 1.15, sat: 1.14, vignette: 0.44, mist: 0.24, mistTop: 26,
+    // Sun through leaves rather than onto them: everything green in this
+    // region is lit from behind, which is what four inches off the ground
+    // actually looks like on a summer afternoon.
+    palette: {
+      zenith:  [0.110, 0.230, 0.470], mid: [0.300, 0.450, 0.640],
+      horizon: [0.700, 0.760, 0.640], sun: [1.000, 0.960, 0.740],
+      fog:     [0.600, 0.680, 0.560],
+      sunY: 0.44, az: 1.15, cloud: 0.40, exposure: 0.74,
     },
   },
   {
@@ -161,6 +325,35 @@ const ORDER = [
     },
   },
   {
+    id: 'hort', stop: 20, title: 'Hort Town', film: 'Tales from Earthsea', year: 2006,
+    length: 2600, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.60,
+    sound: { town: 0.65, water: 0.55, wind: 0.50, cry: 0.35, creak: 0.25 },
+    fogDensity: 0.00048, bloom: 0.95, sat: 1.04, vignette: 0.50, mist: 0.16, mistTop: 30,
+    // Mid-afternoon, dry, and the light has gone the colour of the walls.
+    waterDeep: '#123444', waterShallow: '#3a6a70',
+    palette: {
+      zenith:  [0.110, 0.210, 0.420], mid: [0.330, 0.400, 0.540],
+      horizon: [0.820, 0.700, 0.500], sun: [1.000, 0.880, 0.640],
+      fog:     [0.700, 0.630, 0.500],
+      sunY: 0.34, az: 1.20, cloud: 0.30, exposure: 0.76,
+    },
+  },
+  {
+    id: 'crooked', stop: 21, title: 'The Crooked House', film: 'Earwig and the Witch', year: 2020,
+    length: 2400, stationAt: 1300,
+    ink: 0, wet: 1, wind: 0.75,
+    sound: { rain: 0.90, wind: 0.45, leaves: 0.25, creak: 0.30 },
+    fogDensity: 0.00110, bloom: 1.30, sat: 0.88, vignette: 0.76, mist: 0.40, mistTop: 22,
+    // Night, wet, and English about it: everything blue-grey except one door.
+    palette: {
+      zenith:  [0.020, 0.028, 0.048], mid: [0.040, 0.052, 0.080],
+      horizon: [0.090, 0.104, 0.130], sun: [0.190, 0.210, 0.260],
+      fog:     [0.072, 0.084, 0.104],
+      sunY: 0.14, az: 1.05, cloud: 0.95, exposure: 1.24,
+    },
+  },
+  {
     id: 'valley', stop: 22, title: 'The Valley of the Wind', film: 'Nausicaä', year: 1984,
     length: 3000, stationAt: 1500,
     ink: 0, wet: 0, wind: 1.25,
@@ -209,6 +402,52 @@ const ORDER = [
       horizon: [0.680, 0.640, 0.560], sun: [1.000, 0.900, 0.700],
       fog:     [0.560, 0.560, 0.540],
       sunY: 0.40, cloud: 0.88, exposure: 0.94,
+    },
+  },
+  {
+    id: 'wind1920', stop: 25, title: 'The Meadow of 1920', film: 'The Wind Rises', year: 2013,
+    length: 2800, stationAt: 1310,
+    ink: 0, wet: 0, wind: 1.15,
+    sound: { wind: 0.95, leaves: 0.55, cry: 0.25 },
+    fogDensity: 0.00034, bloom: 0.95, sat: 1.08, vignette: 0.38, mist: 0.0, mistTop: 0,
+    // High summer, high sun, and the deepest blue on the line.
+    palette: {
+      zenith:  [0.070, 0.190, 0.560], mid: [0.170, 0.390, 0.740],
+      horizon: [0.540, 0.690, 0.790], sun: [1.000, 0.960, 0.840],
+      fog:     [0.500, 0.640, 0.740],
+      sunY: 0.72, az: 1.10, cloud: 0.55, exposure: 0.70,
+    },
+  },
+  {
+    id: 'tower', stop: 26, title: 'The Tower', film: 'The Boy and the Heron', year: 2023,
+    length: 2700, stationAt: 1300,
+    ink: 0, wet: 0, wind: 0.55,
+    sound: { leaves: 0.55, water: 0.45, wind: 0.50, cry: 0.40, creak: 0.20 },
+    fogDensity: 0.00090, bloom: 0.80, sat: 0.82, vignette: 0.62, mist: 0.48, mistTop: 36,
+    // Overcast and almost directionless. The one region that must not look
+    // picturesque, so there is no sun in it to make it so.
+    waterDeep: '#2a3238', waterShallow: '#59646a',
+    palette: {
+      zenith:  [0.200, 0.240, 0.290], mid: [0.380, 0.410, 0.440],
+      horizon: [0.600, 0.615, 0.610], sun: [0.700, 0.710, 0.700],
+      fog:     [0.520, 0.545, 0.545],
+      sunY: 0.40, az: 1.05, cloud: 0.92, exposure: 0.86,
+    },
+  },
+  {
+    id: 'sketch', stop: 27, title: 'The Sketch', film: 'My Neighbors the Yamadas', year: 1999,
+    length: 3000, stationAt: 1500,
+    ink: 1, wet: 0, wind: 0.65,
+    sound: { leaves: 0.40, wind: 0.30, cry: 0.20 },
+    // brighter paper and a softer, bluer ink than Kaguya: felt pen on a smooth
+    // white page, not charcoal on a rough one
+    paper: '#fcfaf5', inkTone: '#3a4450',
+    fogDensity: 0.00016, bloom: 0.10, sat: 1.0, vignette: 0.12, mist: 0.0, mistTop: 0,
+    palette: {
+      zenith:  [0.860, 0.868, 0.880], mid: [0.900, 0.906, 0.914],
+      horizon: [0.944, 0.940, 0.930], sun: [0.960, 0.955, 0.945],
+      fog:     [0.940, 0.938, 0.930],
+      sunY: 0.60, az: 1.10, cloud: 0.18, exposure: 1.00,
     },
   },
 ];
@@ -307,6 +546,16 @@ export function atmosphereAt(z, hour) {
   tmpB.set(b.inkTone ?? '#12141c').convertSRGBToLinear();
   const inkTone = tmpA.clone().lerp(tmpB, t);
 
+  // The sea is a different colour in every country it turns up in, and until
+  // now it was the same flooded-plain slate everywhere — which made an
+  // Adriatic cove read as a puddle in Yorkshire.
+  tmpA.set(a.waterDeep ?? '#060c17').convertSRGBToLinear();
+  tmpB.set(b.waterDeep ?? '#060c17').convertSRGBToLinear();
+  const waterDeep = tmpA.clone().lerp(tmpB, t);
+  tmpA.set(a.waterShallow ?? '#11202c').convertSRGBToLinear();
+  tmpB.set(b.waterShallow ?? '#11202c').convertSRGBToLinear();
+  const waterShallow = tmpA.clone().lerp(tmpB, t);
+
   const L = (k) => THREE.MathUtils.lerp(a[k] ?? 0, b[k] ?? 0, t);
 
   // The soundscape blends exactly like the sky does, which is what makes a
@@ -342,7 +591,7 @@ export function atmosphereAt(z, hour) {
     sat: L('sat'),
     vignette: L('vignette'),
     sound,
-    paper, inkTone,
+    paper, inkTone, waterDeep, waterShallow,
     PAPER_DEFAULT, INK_DEFAULT,
   };
 }

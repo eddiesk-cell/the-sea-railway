@@ -84,6 +84,9 @@ src/
     railway.js             the line, the platform, the train
     spirits.js             the waiting ones, lanterns, steam, the dragon, reeds
     geo.js                 curved Japanese roofs, hills, instancing
+  regions/
+    index.js               the running order: every country's air, in one table
+    *.js                   one file per country, each a description not code
   post/
     painterly.js           Kuwahara + the finish
 ```
@@ -105,5 +108,8 @@ not modelled.
 Studio Ghibli's films and characters belong to Studio Ghibli. The code here is
 MIT licensed and mine to give away; the films that inspired it are not.
 
-`ROUTE.md` describes where this is going: one railway line through all
-twenty-four Ghibli features, looping back to the first.
+`ROUTE.md` has the whole line: **twenty-seven countries, one for every Ghibli
+feature** — and three of them twice, because Mononoke, Howl's and Laputa each
+have two landscapes that are nothing like each other. All twenty-seven are
+laid. Ride it with **R** and it never finishes; press **O** anywhere and the
+camera makes that place home and circles it.
