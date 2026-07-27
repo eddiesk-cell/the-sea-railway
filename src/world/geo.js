@@ -49,6 +49,13 @@ export function hill(radius, height, seed = 1, opts = {}) {
     pos.setXYZ(i, x * radius * s, y * height * (1 + n * rough * 0.35), z * radius * s);
   }
   geo.computeVertexNormals();
+  // The dome describes itself. Three things need to know where this land is —
+  // the trees planted on it, the places built on it, and the grass field that
+  // has to grow over all of it — and each used to be told separately, which is
+  // how six regions ended up with a sampler that disagreed with the ground.
+  // Now the geometry carries the answer and anything can walk the scene and
+  // ask, rather than being told twice and believing the wrong one.
+  geo.userData.hill = { r: radius, h: height, rough, off: off.slice(0, 4) };
   return geo;
 }
 

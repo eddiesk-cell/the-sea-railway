@@ -114,6 +114,8 @@ export function buildDrownedRoad(shared) {
     [520, -1200, 300, 74, 21], [700, -2300, 350, 96, 27],
   ];
   const HILL_SURF = HILLS.map(([, , r, h, seed]) => hillSampler(r, h, seed, { rough: 0.12 }));
+
+  // The houses stand on the town's plate, so their floor never goes below 0.
   const groundAt = (x, z) => {
     let best = 0;
     HILLS.forEach(([hx, hz], i) => {
@@ -123,26 +125,65 @@ export function buildDrownedRoad(shared) {
     return best;
   };
 
+  // The fish need a DIFFERENT question answered, and asking them the same one
+  // was the whole bug. `groundAt` reports 0 out in the open sea — the plate,
+  // not the seabed — and to a shore test 0 reads as dry land. So this one
+  // says what is actually under the water, and where there is no hill it says
+  // "deep", because there is nothing out there to hit.
+  const OPEN = -40;
+  const landTopAt = (x, z) => {
+    let top = OPEN;
+    HILLS.forEach(([hx, hz], i) => {
+      const s = HILL_SURF[i](x - hx, z - hz);
+      if (s !== null) top = Math.max(top, -4 + s);
+    });
+    return top;
+  };
+
   // They run the length of THIS region and no further. A shoal that travels
   // its own length twice over swims out of Ponyo and into Kiki's harbour,
   // where a forty-metre fish is not what the picture is about.
   const RUN = 2200;
+
+  // ---- lanes that are provably water -------------------------------------
+  // Eddie, twice now: they must "just swim in the water". Two rounds of
+  // moving the numbers by hand got it wrong twice — first the lanes ran
+  // through three hillsides, then they cleared the hills and ran straight up
+  // the causeway instead. So stop guessing where the water is and check.
+  //
+  // A lane is walked end to end, wobble included, and kept only if every
+  // point of it is open sea AND clear of the two things standing in it: the
+  // road at -26 with its barrier and lamp rank, and the railway at 0.
+  const KEEP_OUT = [[ROAD_X, 8.5], [0, 9.5]];
+  const isWater = (x, z) =>
+    landTopAt(x, z) < -14 && !KEEP_OUT.some(([cx, w]) => Math.abs(x - cx) < w);
+  const laneOK = (c, wob) => {
+    for (let o = -wob; o <= wob + 1e-6; o += wob / 2) {
+      for (let z = -110; z > -130 - RUN; z -= 50) if (!isWater(c + o, z)) return false;
+    }
+    return true;
+  };
+  const lanes = (lo, hi, step, wob) => {
+    const out = [];
+    for (let c = lo; c <= hi; c += step) if (laneOK(c, wob)) out.push(c);
+    return out;
+  };
+  // Near: the channel between the road and the line, which is narrow — so the
+  // wobble is small and they run in a tight file alongside the train, which
+  // is the shot from the film anyway. Far: open sea on the other side, room
+  // to wander, stopping short of the headland at 220.
+  const NEAR = lanes(-24, -4, 0.5, 3);
+  const FAR = lanes(18, 215, 2, 25);
+
   const shoal = [];
   for (let i = 0; i < 120; i++) {
-    // Two bands, and both of them are WATER.
-    //
-    // The lanes used to run from x -50 to -280, which is straight through the
-    // three hills the town stands on — Eddie watched them "swim into land or
-    // out of the land". The near band now runs in the channel between the road
-    // at -26 and the line, so the shoal keeps pace with the train the way it
-    // keeps pace with the car in the film; the far band is out in open sea,
-    // clear of the hills on the other side, which start at 220.
     const near = i % 3 !== 0;
+    const band = near ? NEAR : FAR;
     shoal.push({
-      x: near ? -(9 + rnd() * 13) : 55 + rnd() * 140,
-      wob: near ? 8 : 30,
+      x: band[(rnd() * band.length) | 0],
+      wob: near ? 3 : 25,
       z0: rnd() * RUN,
-      s: near ? 3.4 + rnd() * 4.0 : 5.5 + rnd() * 7.0,
+      s: near ? 3.0 + rnd() * 3.2 : 5.5 + rnd() * 7.0,
       ph: rnd() * 6.28, sp: 0.5 + rnd() * 0.7,
       lane: rnd() * 6.28,
     });
@@ -268,13 +309,11 @@ export function buildDrownedRoad(shared) {
       pv.set(x, y, z);
       e.set(Math.sin(t * 0.9 + f.ph) * 0.14, yaw, roll);
       q.setFromEuler(e);
-      // A fish is only where there is water to be in. The lanes run the whole
-      // length of the region and the hills stand in several of them, so each
-      // one dives as its own patch of sea shallows and comes back up on the
-      // far side — rather than swimming up a hillside, which is what it did
-      // before anything here knew where the shore was.
-      const land = groundAt(x, z);
-      const sink = 1 - THREE.MathUtils.smoothstep(land, -16, -1);
+      // The lane is already proven water, so this should never fire. It stays
+      // as the backstop: if anything ever moves — a hill widened, a lane
+      // nudged — a fish shrinks into the shallows instead of climbing them.
+      const land = landTopAt(x, z);
+      const sink = 1 - THREE.MathUtils.smoothstep(land, -22, -10);
       const sc = f.s * sink;
       sv.set(sc, sc, sc);
       m.compose(pv, q, sv);

@@ -59,10 +59,21 @@ export function createGrass(shared, opts = {}) {
     uHeight:  { value: 0.95 },
     uDensity: { value: 1.0 },
     uBathXZ:  { value: new THREE.Vector2(-268, -198) },
-    // up to six domes of land: xy = centre, z = radius, w = height.
-    // The same formula the trees are planted with, so grass and wood agree.
-    uHills:   { value: Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, 0, 0)) },
-    uHillBase:{ value: -10.0 },
+    // The eight domes of land nearest the camera, refilled as you travel —
+    // so the field grows on whatever country you are standing in, not only on
+    // the first one. xy = centre, z = radius, w = height.
+    uHills:   { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+    // ...and the two things that make a dome the shape it actually is: the
+    // four noise offsets that roughen its rim, and (base height, roughness).
+    // Without these the shader draws a smooth hemisphere over a lumpy one and
+    // plants grass fifteen metres in the air near the edges, which is exactly
+    // what the trees did before hillSampler existed.
+    uHillO:   { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+    uHillB:   { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+    // Flat land, which is most of it: a town shelf, a field, a courtyard.
+    // xy = centre, zw = half extents; uPadY.x = the height of the top.
+    uPads:    { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+    uPadY:    { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
     uBlade:   { value: new THREE.Color('#5f7a33').convertSRGBToLinear() },
     uBladeLo: { value: new THREE.Color('#1a2a22').convertSRGBToLinear() },
     uFogColor:{ value: new THREE.Vector3(0.5, 0.5, 0.55) },
@@ -74,9 +85,9 @@ export function createGrass(shared, opts = {}) {
     vertexShader: /* glsl */`
       precision highp float;
       attribute float aSeed;
-      uniform float uTime, uTile, uTiles, uPerTile, uRadius, uHeight, uDensity, uHillBase;
+      uniform float uTime, uTile, uTiles, uPerTile, uRadius, uHeight, uDensity;
       uniform vec2  uCamXZ, uBathXZ;
-      uniform vec4  uHills[6];
+      uniform vec4  uHills[8], uHillO[8], uHillB[8], uPads[4], uPadY[4];
       varying vec3  vWorld, vNrm;
       varying float vH, vTint, vLean;
       ${NOISE}
@@ -89,17 +100,48 @@ export function createGrass(shared, opts = {}) {
       // two octaves is plenty when it runs seven million times a frame
       float n2(vec2 p){ return vnoise(p) * 0.66 + vnoise(p * 2.17 + 5.1) * 0.34; }
 
-      // the height of the land under a point, and how far inland it is
+      // The height of the land under a point, and how far inland it is.
+      //
+      // This is hillSampler() from geo.js, line for line, and it has to stay
+      // that way: the roughness is applied to the RADIUS, so the height at a
+      // given distance can only be recovered by solving for it, which is what
+      // the four fixed-point steps are. A smooth hemisphere is not an
+      // approximation of this surface — near the rim it is out by a quarter
+      // of the hill's height.
       float landAt(vec2 p, out float inland){
         float y = -1e5; inland = 0.0;
-        for (int i = 0; i < 6; i++){
+        for (int i = 0; i < 8; i++){
           float r = uHills[i].z;
           if (r <= 0.0) continue;
-          float d = distance(p, uHills[i].xy);
-          if (d >= r) continue;
-          float t = d / r;
-          y = max(y, uHillBase + uHills[i].w * sqrt(max(0.0, 1.0 - t * t)) * 0.93);
-          inland = max(inland, smoothstep(0.99, 0.80, t));
+          vec2 d2 = p - uHills[i].xy;
+          float D = length(d2);
+          if (D >= r * 1.28) continue;
+          vec4 o = uHillO[i];
+          float a = atan(d2.y, d2.x);
+          float n = sin(a *  3.0 + o.x) * 0.34 + sin(a *  5.0 + o.y) * 0.22
+                  + sin(a *  9.0 + o.z) * 0.12 + sin(a * 17.0 + o.w) * 0.06;
+          float rough = uHillB[i].y;
+          float u = D / r;
+          for (int k = 0; k < 4; k++){
+            if (u >= 1.0) break;
+            float yy = sqrt(max(0.0, 1.0 - u * u));
+            float s = max(0.2, 1.0 + n * rough * (1.0 - yy * 0.55));
+            u = D / (r * s);
+          }
+          if (u >= 1.0) continue;
+          float yy = sqrt(max(0.0, 1.0 - u * u));
+          y = max(y, uHillB[i].x + yy * uHills[i].w * (1.0 + n * rough * 0.35));
+          inland = max(inland, smoothstep(1.0, 0.82, u));
+        }
+        // flat land: a shelf, a field, a courtyard. Grass stops a metre or two
+        // short of the edge, because turf growing to a sheer drop looks pasted.
+        for (int i = 0; i < 4; i++){
+          if (uPads[i].z <= 0.0) continue;
+          vec2 q = abs(p - uPads[i].xy) - uPads[i].zw;
+          float e = max(q.x, q.y);
+          if (e >= 0.0) continue;
+          y = max(y, uPadY[i].x);
+          inland = max(inland, smoothstep(-0.5, -4.0, e));
         }
         return y;
       }

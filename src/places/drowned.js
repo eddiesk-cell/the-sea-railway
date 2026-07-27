@@ -26,11 +26,11 @@ export default {
     {
       id: 'headland-house',
       name: 'The house on the headland',
-      at: [560, -1200], r: 110, ground: 26,
+      at: [880, -1200], r: 110, ground: 26,
       trail: { from: [90, -1300], style: 'stones' },
       build: (M) => {
         const g = new THREE.Group();
-        const C = [560, -1200];
+        const C = [880, -1200];
         const head = new THREE.Mesh(hill(190, 34, 11, { rough: 0.3, rings: 12, sectors: 22 }), M.turf);
         head.position.set(C[0], -6, C[1]); g.add(head);
 

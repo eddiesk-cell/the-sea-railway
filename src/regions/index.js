@@ -27,6 +27,7 @@ export const BLEND = 280;
 const ORDER = [
   {
     id: 'sea', stop: 1, title: 'The Sea Railway', film: 'Spirited Away', year: 2001,
+    grass: '#5f7a33', grassLo: '#1a2a22',
     length: 2050, stationAt: 900, authored: 900,
     hourDriven: true,                 // this one answers to the hour slider
     ink: 0, wet: 0, wind: 0.55,
@@ -36,6 +37,7 @@ const ORDER = [
   },
   {
     id: 'drowned', stop: 2, title: 'The Drowned Road', film: 'Ponyo', year: 2008,
+    grass: '#5f8a3e', grassLo: '#1d3524',
     length: 2400, stationAt: 1250,
     ink: 0, wet: 0, wind: 1.05,
     sound: { water: 1.00, wind: 0.55, cry: 0.30 },
@@ -52,6 +54,7 @@ const ORDER = [
   },
   {
     id: 'marsh', stop: 3, title: 'The Marsh House', film: 'When Marnie Was There', year: 2014,
+    grass: '#7f8a52', grassLo: '#2c3226',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.60,
     sound: { water: 0.55, wind: 0.55, leaves: 0.45, cry: 0.30 },
@@ -69,6 +72,7 @@ const ORDER = [
   },
   {
     id: 'poppy', stop: 4, title: 'Poppy Hill', film: 'From Up on Poppy Hill', year: 2011,
+    grass: '#6d8f36', grassLo: '#22331f',
     length: 2700, stationAt: 1350,
     ink: 0, wet: 0, wind: 0.85,
     sound: { town: 0.75, water: 0.70, cry: 0.55, wind: 0.45 },
@@ -84,6 +88,7 @@ const ORDER = [
   },
   {
     id: 'koriko', stop: 5, title: 'Koriko', film: "Kiki's Delivery Service", year: 1989,
+    grass: '#66883a', grassLo: '#20301e',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.75,
     sound: { water: 0.45, wind: 0.40, town: 0.70, cry: 0.55 },
@@ -99,6 +104,7 @@ const ORDER = [
   },
   {
     id: 'cove', stop: 6, title: 'The Hidden Cove', film: 'Porco Rosso', year: 1992,
+    grass: '#8a9146', grassLo: '#2e3220',
     length: 2700, stationAt: 1350,
     ink: 0, wet: 0, wind: 0.55,
     sound: { water: 1.00, wind: 0.35, cry: 0.45 },
@@ -117,6 +123,7 @@ const ORDER = [
   },
   {
     id: 'ocean', stop: 7, title: 'Ocean Waves', film: 'Ocean Waves', year: 1993,
+    grass: '#5c8038', grassLo: '#1c2c1e',
     length: 2400, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.40,
     sound: { water: 0.65, leaves: 0.70, town: 0.30, cry: 0.20, wind: 0.20 },
@@ -135,6 +142,7 @@ const ORDER = [
   },
   {
     id: 'bus', stop: 8, title: 'The Bus Stop', film: 'My Neighbour Totoro', year: 1988,
+    grass: '#4e7a30', grassLo: '#16281a',
     length: 2750, stationAt: 1310, authored: -1150,
     ink: 0, wet: 1, wind: 0.9,
     sound: { rain: 1.00, wind: 0.30, water: 0.20 },
@@ -151,6 +159,7 @@ const ORDER = [
   },
   {
     id: 'hillside', stop: 9, title: 'The Hillside', film: 'Grave of the Fireflies', year: 1988,
+    grass: '#7a7c3c', grassLo: '#28281a',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.30,
     // the quietest mix on the line, and it stays that way
@@ -166,6 +175,7 @@ const ORDER = [
   },
   {
     id: 'safflower', stop: 10, title: 'Safflower Fields', film: 'Only Yesterday', year: 1991,
+    grass: '#84913f', grassLo: '#2c2f1c',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.50,
     sound: { leaves: 0.55, wind: 0.45, cry: 0.30, stream: 0.20 },
@@ -181,6 +191,7 @@ const ORDER = [
   },
   {
     id: 'tama', stop: 11, title: 'Tama Hills', film: 'Pom Poko', year: 1994,
+    grass: '#587c33', grassLo: '#1b2a1c',
     // the station sits exactly ON the boundary, so the window holds wood on one
     // side of the frame and cut earth on the other — which is the whole region
     length: 2800, stationAt: 1330,
@@ -198,6 +209,7 @@ const ORDER = [
   },
   {
     id: 'rotary', stop: 12, title: 'The Rotary', film: 'Whisper of the Heart', year: 1995,
+    grass: '#5d7f37', grassLo: '#1e2c1e',
     length: 2700, stationAt: 1290,
     ink: 0, wet: 0, wind: 0.45,
     sound: { town: 0.55, wind: 0.35, leaves: 0.30, cry: 0.20 },
@@ -212,6 +224,7 @@ const ORDER = [
   },
   {
     id: 'cats', stop: 13, title: 'The Cat Bureau', film: 'The Cat Returns', year: 2002,
+    grass: '#6f9440', grassLo: '#233420',
     length: 2400, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.50,
     sound: { leaves: 0.45, wind: 0.35, town: 0.45, cry: 0.20 },
@@ -227,6 +240,7 @@ const ORDER = [
   },
   {
     id: 'garden', stop: 14, title: 'The Garden', film: 'Arrietty', year: 2010,
+    grass: '#4a7332', grassLo: '#152418',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.85,
     sound: { leaves: 1.00, wind: 0.45, stream: 0.18, cry: 0.15 },
@@ -243,6 +257,7 @@ const ORDER = [
   },
   {
     id: 'ink', stop: 15, title: 'The Ink Country', film: 'The Tale of the Princess Kaguya', year: 2013,
+    grass: '#7c8a54', grassLo: '#2a2f22',
     length: 3400, stationAt: 1500, authored: -1150,
     ink: 1, wet: 0, wind: 0.85,
     sound: { leaves: 1.00, knock: 1.00, wind: 0.35, stream: 0.12 },
@@ -264,6 +279,7 @@ const ORDER = [
   },
   {
     id: 'cedar', stop: 16, title: 'The Cedar Forest', film: 'Princess Mononoke', year: 1997,
+    grass: '#3f6b3a', grassLo: '#122019',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.30,
     sound: { stream: 0.90, leaves: 0.35, wind: 0.20, cry: 0.18 },
@@ -280,6 +296,7 @@ const ORDER = [
   },
   {
     id: 'iron', stop: 17, title: 'Iron Town', film: 'Princess Mononoke', year: 1997,
+    grass: '#5a6b34', grassLo: '#1c231a',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.45,
     sound: { town: 0.95, knock: 0.90, water: 0.35, wind: 0.25, creak: 0.30 },
@@ -296,6 +313,7 @@ const ORDER = [
   },
   {
     id: 'meadow', stop: 18, title: 'The Meadow', film: "Howl's Moving Castle", year: 2004,
+    grass: '#79a043', grassLo: '#253620',
     length: 2800, stationAt: 1400,
     ink: 0, wet: 0, wind: 0.95,
     sound: { wind: 0.85, leaves: 0.30, cry: 0.35, creak: 0.22 },
@@ -311,6 +329,7 @@ const ORDER = [
   },
   {
     id: 'market', stop: 19, title: 'Market Chipping', film: "Howl's Moving Castle", year: 2004,
+    grass: '#6b8c3c', grassLo: '#22301e',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.55,
     sound: { town: 1.00, wind: 0.30, cry: 0.35, creak: 0.30, leaves: 0.25 },
@@ -326,6 +345,7 @@ const ORDER = [
   },
   {
     id: 'hort', stop: 20, title: 'Hort Town', film: 'Tales from Earthsea', year: 2006,
+    grass: '#8c8544', grassLo: '#2e2a1c',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.60,
     sound: { town: 0.65, water: 0.55, wind: 0.50, cry: 0.35, creak: 0.25 },
@@ -341,6 +361,7 @@ const ORDER = [
   },
   {
     id: 'crooked', stop: 21, title: 'The Crooked House', film: 'Earwig and the Witch', year: 2020,
+    grass: '#5e7a3c', grassLo: '#1e2a1e',
     length: 2400, stationAt: 1300,
     ink: 0, wet: 1, wind: 0.75,
     sound: { rain: 0.90, wind: 0.45, leaves: 0.25, creak: 0.30 },
@@ -355,6 +376,7 @@ const ORDER = [
   },
   {
     id: 'valley', stop: 22, title: 'The Valley of the Wind', film: 'Nausicaä', year: 1984,
+    grass: '#7d8f4a', grassLo: '#2a2f20',
     length: 3000, stationAt: 1500,
     ink: 0, wet: 0, wind: 1.25,
     sound: { wind: 1.00, leaves: 0.45, creak: 0.80 },
@@ -371,6 +393,7 @@ const ORDER = [
   },
   {
     id: 'slag', stop: 23, title: 'Slag Ravine', film: 'Castle in the Sky', year: 1986,
+    grass: '#6a6f3a', grassLo: '#24241a',
     length: 2600, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.35,
     sound: { town: 0.70, knock: 1.00, wind: 0.45, stream: 0.22, creak: 0.45 },
@@ -390,6 +413,7 @@ const ORDER = [
   },
   {
     id: 'laputa', stop: 24, title: 'Laputa', film: 'Castle in the Sky', year: 1986,
+    grass: '#6da44a', grassLo: '#203220',
     length: 3000, stationAt: 1500,
     ink: 0, wet: 0, wind: 1.15,
     sound: { wind: 1.00, thunder: 0.85, leaves: 0.25 },
@@ -406,6 +430,7 @@ const ORDER = [
   },
   {
     id: 'wind1920', stop: 25, title: 'The Meadow of 1920', film: 'The Wind Rises', year: 2013,
+    grass: '#84a047', grassLo: '#2a3620',
     length: 2800, stationAt: 1310,
     ink: 0, wet: 0, wind: 1.15,
     sound: { wind: 0.95, leaves: 0.55, cry: 0.25 },
@@ -420,6 +445,7 @@ const ORDER = [
   },
   {
     id: 'tower', stop: 26, title: 'The Tower', film: 'The Boy and the Heron', year: 2023,
+    grass: '#4d6f38', grassLo: '#18251c',
     length: 2700, stationAt: 1300,
     ink: 0, wet: 0, wind: 0.55,
     sound: { leaves: 0.55, water: 0.45, wind: 0.50, cry: 0.40, creak: 0.20 },
@@ -436,6 +462,7 @@ const ORDER = [
   },
   {
     id: 'sketch', stop: 27, title: 'The Sketch', film: 'My Neighbors the Yamadas', year: 1999,
+    grass: '#7fa04a', grassLo: '#2a3420',
     length: 3000, stationAt: 1500,
     ink: 1, wet: 0, wind: 0.65,
     sound: { leaves: 0.40, wind: 0.30, cry: 0.20 },
@@ -556,6 +583,16 @@ export function atmosphereAt(z, hour) {
   tmpB.set(b.waterShallow ?? '#11202c').convertSRGBToLinear();
   const waterShallow = tmpA.clone().lerp(tmpB, t);
 
+  // And so is the ground. One green for every country made the meadow at
+  // Iron Town the same meadow as the lawn outside the Cat Bureau, and half
+  // of what tells you which film you are in is what colour the grass is.
+  tmpA.set(a.grass ?? '#5f7a33').convertSRGBToLinear();
+  tmpB.set(b.grass ?? '#5f7a33').convertSRGBToLinear();
+  const grass = tmpA.clone().lerp(tmpB, t);
+  tmpA.set(a.grassLo ?? '#1a2a22').convertSRGBToLinear();
+  tmpB.set(b.grassLo ?? '#1a2a22').convertSRGBToLinear();
+  const grassLo = tmpA.clone().lerp(tmpB, t);
+
   const L = (k) => THREE.MathUtils.lerp(a[k] ?? 0, b[k] ?? 0, t);
 
   // The soundscape blends exactly like the sky does, which is what makes a
@@ -591,7 +628,7 @@ export function atmosphereAt(z, hour) {
     sat: L('sat'),
     vignette: L('vignette'),
     sound,
-    paper, inkTone, waterDeep, waterShallow,
+    paper, inkTone, waterDeep, waterShallow, grass, grassLo,
     PAPER_DEFAULT, INK_DEFAULT,
   };
 }

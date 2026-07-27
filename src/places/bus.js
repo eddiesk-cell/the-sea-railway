@@ -142,11 +142,11 @@ export default {
     {
       id: 'fox-shrine',
       name: 'The shrine with the rope',
-      at: [410, -3130], r: 74, ground: 1.4,
+      at: [133, -3290], r: 74, ground: 1.4,
       trail: { from: [60, -3020], style: 'stones' },
       build: (M) => {
         const g = new THREE.Group();
-        const C = [410, -3130];
+        const C = [133, -3290];
         g.add(shelf(M, { r: 110, h: 1.5, mat: M.turf, seed: 13, rough: 0.24 }).translateX(C[0]).translateZ(C[1]));
 
         const t = torii(M, { w: 5.4, h: 6.4, mat: M.red, cap: M.dark });

@@ -30,7 +30,6 @@ import { buildTheSketch } from './regions/theSketch.js';
 import { createPlaces, placesNear, placeAt, groundAt, PLACE_COUNT } from './places/index.js';
 import { createLife } from './world/life.js';
 import { POPULATIONS } from './world/populations.js';
-import { createCompanion } from './world/companion.js';
 import { createRain } from './world/rain.js';
 import { createSound, windAt } from './world/sound.js';
 import { createWater } from './world/water.js';
@@ -163,12 +162,86 @@ const BUILDERS = {
 };
 const live = new Map();
 
+// --- where all the land in the world is -----------------------------------
+// The grass field can only grow on ground it knows about, and for a long time
+// it knew about exactly one country's hills — which is why twenty-six of them
+// were bare plates with a lawn floating over the middle of the track. Every
+// dome in the world is built by hill(), and hill() now writes its own shape
+// onto the geometry, so a region can simply be walked when it is created and
+// asked what land it brought with it. Nothing is hand-listed and nothing can
+// fall out of step with the ground it describes.
+const LAND = [];
+const PADS = [];
+const landCache = new THREE.Vector3(1e9, 0, 1e9);
+const tmpBox = new THREE.Box3(), tmpSize = new THREE.Vector3(), tmpMid = new THREE.Vector3();
+function harvestLand(group) {
+  group.updateWorldMatrix(true, true);
+  const p = new THREE.Vector3();
+  group.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const d = o.geometry.userData.hill;
+    if (d) {
+      o.getWorldPosition(p);
+      // r * 0.94: the rim of a dome is where it meets the water or the flat,
+      // and grass standing on the last few metres of it stands on a cliff.
+      LAND.push({ x: p.x, z: p.z, y: p.y, r: d.r * 0.94, h: d.h, rough: d.rough, off: d.off });
+      return;
+    }
+    // Half the countries are not built on domes at all — a town stands on a
+    // flat shelf, and a shelf is just a very wide box. Rather than have every
+    // region declare "this one is the ground", the shape gives it away: a
+    // horizontal slab sixty metres across is a floor and nothing else is. So
+    // any big flat top gets a lawn, and a region written next year gets one
+    // without knowing this code exists.
+    if (o.isInstancedMesh) return;
+    tmpBox.setFromObject(o);
+    tmpBox.getSize(tmpSize);
+    if (tmpSize.x < 55 || tmpSize.z < 55 || tmpSize.y > 26) return;
+    tmpBox.getCenter(tmpMid);
+    PADS.push({ x: tmpMid.x, z: tmpMid.z, y: tmpBox.max.y, hx: tmpSize.x * 0.5, hz: tmpSize.z * 0.5 });
+  });
+  landCache.set(1e9, 0, 1e9);        // new land: the field's answer is stale
+}
+
+// The field can carry eight domes at a time, so it gets the eight nearest —
+// refreshed when you have moved far enough for the answer to have changed.
+// A dome you are standing on is worth more than one you can see, hence the
+// bias by radius: a small hill under your feet beats a headland a mile off.
+function refreshLand(at, force = false) {
+  if (!force && landCache.distanceToSquared(at) < 64) return;
+  landCache.copy(at);
+  const near = LAND
+    .map(L => ({ L, d: Math.hypot(L.x - at.x, L.z - at.z) - L.r }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 8);
+  const U = grass.uniforms;
+  for (let i = 0; i < 8; i++) {
+    const n = near[i];
+    if (!n || n.d > 240) { U.uHills.value[i].set(0, 0, 0, 0); continue; }
+    const L = n.L;
+    U.uHills.value[i].set(L.x, L.z, L.r, L.h);
+    U.uHillO.value[i].set(L.off[0], L.off[1], L.off[2], L.off[3]);
+    U.uHillB.value[i].set(L.y, L.rough, 0, 0);
+  }
+  const pads = PADS
+    .map(P => ({ P, d: Math.max(Math.abs(P.x - at.x) - P.hx, Math.abs(P.z - at.z) - P.hz) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 4);
+  for (let i = 0; i < 4; i++) {
+    const n = pads[i];
+    if (!n || n.d > 200) { U.uPads.value[i].set(0, 0, 0, 0); continue; }
+    U.uPads.value[i].set(n.P.x, n.P.z, n.P.hx, n.P.hz);
+    U.uPadY.value[i].set(n.P.y, 0, 0, 0);
+  }
+}
+
 function ensureRegion(r) {
   if (!r || live.has(r.id) || !BUILDERS[r.id]) return;
   const built = BUILDERS[r.id]();
   built.group.position.z += r.shift;
   scene.add(built.group);
   live.set(r.id, built);
+  harvestLand(built.group);
 }
 function ensureNear(z, reach = 1600) {
   REGIONS.forEach(r => {
@@ -195,10 +268,6 @@ function ensureLifeNear(z, reach = 1500) {
   });
 }
 
-// --- the traveller, who only exists when you are walking ---
-const companion = createCompanion(shared);
-scene.add(companion.group);
-
 // --- weather, and the sound of it ---
 const rain = createRain(shared, { count: 6500 });
 scene.add(rain.mesh);
@@ -218,7 +287,7 @@ const sound = createSound();
   ridges.forEach(([x, z, r, h, m], i) => {
     const mesh = new THREE.Mesh(hill(r, h, 30 + i, { rough: 0.5, rings: 14, sectors: 22 }), m);
     mesh.position.set(x, -10, z);
-    scene.add(mesh);
+    scene.add(mesh); harvestLand(mesh);
   });
   // A wooded shoulder for the bathhouse to sit against, not a dome behind it.
   //
@@ -235,7 +304,7 @@ const sound = createSound();
   shoulders.forEach(({ at, r, h, seed, mat }) => {
     const m = new THREE.Mesh(hill(r, h, seed, { rough: ROUGH }), mat);
     m.position.copy(at);
-    scene.add(m);
+    scene.add(m); harvestLand(m);
   });
 
   // a wood: firs, broadleaves, wind-shaped pines, blossom and bamboo
@@ -243,13 +312,6 @@ const sound = createSound();
   scene.add(forest.group);
   window.__trees = forest.count;
 
-  // the grass needs to know where the land is, and it uses the same dome
-  // formula the trees are planted with, so wood and meadow sit on one surface
-  const land = [
-    ...shoulders.map(({ at, r, h }) => [at.x, at.z, r * 0.94, h]),
-    ...ridges.map(([x, z, r, h]) => [x, z, r * 0.94, h]),
-  ].slice(0, 6);
-  land.forEach(([x, z, r, h], i) => grass.uniforms.uHills.value[i].set(x, z, r, h));
 }
 
 // --- a torii standing in the shallows, close enough to touch ---
@@ -316,6 +378,8 @@ function applyAtmosphere(z) {
   water.uniforms.uDeep.value.copy(a.waterDeep);
   water.uniforms.uShallow.value.copy(a.waterShallow);
   grass.uniforms.uFogColor.value.copy(a.fog);
+  grass.uniforms.uBlade.value.copy(a.grass);
+  grass.uniforms.uBladeLo.value.copy(a.grassLo);
 
   // the one warm thing in view gets to paint itself onto the water, and which
   // one that is depends entirely on where you are
@@ -449,7 +513,6 @@ function getDown() {
   state.yaw = Math.PI;                 // facing back down the line, toward -z
   state.pitch = -0.04;
   state.vel.set(0, 0, 0);
-  companion.reset(state.pos, state.yaw);
   places.ensureNear(state.pos, 1400);
   rideLabel(true, 'on foot', 'G to get back on · W A S D to walk');
   mark();
@@ -798,7 +861,6 @@ const foundF = foundEl.querySelector('i');
 const FOV_C = 1.15;                    // how much of the world the strip covers
 const marks = [];
 let foundPlace = null;
-const foundAt = new THREE.Vector3();
 let compassAcc = 0;
 
 function markEl(i) {
@@ -841,7 +903,6 @@ function paintCompass() {
   if (p !== foundPlace) {
     foundPlace = p;
     if (p) {
-      foundAt.set(p.x, p.ground + 2, p.z);
       foundH.textContent = p.name;
       foundF.textContent = p.film;
       foundEl.classList.add('show');
@@ -963,7 +1024,6 @@ function frame() {
     const stride = Math.hypot(state.vel.x, state.vel.z) / sp;
     camera.position.y += Math.sin(clock * 7.4) * 0.035 * stride;
     camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, Math.sin(clock * 3.7) * 0.006 * stride, 'YXZ'));
-    companion.update(dt, state.pos, state.yaw, gnd, foundPlace ? foundAt : null, true);
   } else if (state.mode === 'free') {
     shared.uLamps.value[2].w = 0;
     const sp = (state.keys.has('shift') ? 46 : 15);
@@ -1011,6 +1071,7 @@ function frame() {
   shared.uCamPos.value.copy(camera.position);
   water.uniforms.uCamPos.value.copy(camera.position);
   grass.uniforms.uCamXZ.value.set(camera.position.x, camera.position.z);
+  refreshLand(camera.position);
   sky.mesh.position.copy(camera.position);
   sky.uniforms.uTime.value = clock;
   sky.uniforms.uSunDir.value.copy(shared.uSunDir.value);
@@ -1063,7 +1124,6 @@ function frame() {
   live.forEach(r => r.update && r.update(clock));
   places.update(clock, camera.position);
   life.update(clock);
-  if (state.mode !== 'walk') companion.update(dt, camera.position, state.yaw, 0, null, false);
   paintCompass();
   spirits.update(clock);
   lanterns.update(clock);
@@ -1153,6 +1213,72 @@ window.__walk = (i) => {
   return { stop: REGIONS[stopIndex].title, places: PLACE_COUNT, built: places.count, pops: life.count };
 };
 // what is within reach on foot, nearest first
+// Is any place standing inside a hill? Building a village on the +x side and
+// a wooded shoulder on the same coordinates is an easy mistake to make and an
+// impossible one to see from the seat — the street of stalls spent its first
+// pass twenty-six metres underground with a forest hanging over it. This walks
+// every place against every dome and says so.
+window.__buried = () => {
+  const bad = [];
+  REGIONS.forEach((r) => { ensureRegion(r); });
+  placesNear(new THREE.Vector3(0, 0, 0), 1e9).forEach(({ place }) => {
+    LAND.forEach((L) => {
+      const dx = place.x - L.x, dz = place.z - L.z;
+      if (Math.hypot(dx, dz) >= L.r) return;
+      const D = Math.hypot(dx, dz), a = Math.atan2(dz, dx), o = L.off;
+      const n = Math.sin(a * 3 + o[0]) * 0.34 + Math.sin(a * 5 + o[1]) * 0.22
+              + Math.sin(a * 9 + o[2]) * 0.12 + Math.sin(a * 17 + o[3]) * 0.06;
+      let u = D / L.r;
+      for (let i = 0; i < 4 && u < 1; i++) {
+        const y = Math.sqrt(Math.max(0, 1 - u * u));
+        u = D / (L.r * Math.max(0.2, 1 + n * L.rough * (1 - y * 0.55)));
+      }
+      if (u >= 1) return;
+      const top = L.y + Math.sqrt(Math.max(0, 1 - u * u)) * L.h * (1 + n * L.rough * 0.35);
+      const over = top - (place.ground ?? 0);
+      if (over > 6) bad.push({ place, over: Math.round(over) });
+    });
+  });
+  if (!bad.length) return 'nothing buried';
+
+  // ...and where it could stand instead. Search outward from where the author
+  // put it for the nearest point with open sky over it, keeping the place in
+  // its own country. Reported as a local offset, because that is what the
+  // place file is written in.
+  const top = (x, z, L) => {
+    const dx = x - L.x, dz = z - L.z, D = Math.hypot(dx, dz);
+    if (D >= L.r) return -1e9;
+    const a = Math.atan2(dz, dx), o = L.off;
+    const n = Math.sin(a * 3 + o[0]) * 0.34 + Math.sin(a * 5 + o[1]) * 0.22
+            + Math.sin(a * 9 + o[2]) * 0.12 + Math.sin(a * 17 + o[3]) * 0.06;
+    let u = D / L.r;
+    for (let i = 0; i < 4 && u < 1; i++) {
+      const y = Math.sqrt(Math.max(0, 1 - u * u));
+      u = D / (L.r * Math.max(0.2, 1 + n * L.rough * (1 - y * 0.55)));
+    }
+    if (u >= 1) return -1e9;
+    return L.y + Math.sqrt(Math.max(0, 1 - u * u)) * L.h * (1 + n * L.rough * 0.35);
+  };
+  return bad.map(({ place, over }) => {
+    for (let ring = 1; ring <= 40; ring++) {
+      for (let k = 0; k < 24; k++) {
+        const a = (k / 24) * Math.PI * 2;
+        const x = place.x + Math.cos(a) * ring * 40, z = place.z + Math.sin(a) * ring * 40;
+        // Outside every dome, with room to spare — "below the hill's surface
+        // here" is not good enough, because the place brings its own ground
+        // and its skirts would still be swallowed.
+        if (LAND.some(L => Math.hypot(x - L.x, z - L.z) < L.r + 40)) continue;
+        return `${place.name} (${place.region.id}): buried ${over} m — move by ${Math.round(x - place.x)}, ${Math.round(z - place.z)}`;
+      }
+    }
+    return `${place.name} (${place.region.id}): buried ${over} m — nowhere clear within 1.6 km`;
+  });
+};
+window.__land = () => LAND.map(L => ({
+  x: Math.round(L.x), z: Math.round(L.z), y: Math.round(L.y),
+  r: Math.round(L.r), h: Math.round(L.h),
+  away: Math.round(Math.hypot(L.x - camera.position.x, L.z - camera.position.z)),
+})).sort((a, b) => a.away - b.away);
 window.__near = (n = 6) => placesNear(camera.position, 2000).slice(0, n)
   .map(({ place, d }) => `${Math.round(d)}m ${place.name}`);
 

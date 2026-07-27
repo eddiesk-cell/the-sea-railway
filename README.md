@@ -47,12 +47,13 @@ Leave it alone for sixteen seconds and it takes the camera back, on a slow
 four-minute pass through the world.
 
 **Getting down.** Press **G** and the journey holds where it is and puts you on
-the ground beside the track. Every country has places off the line — eighty-six
+the ground beside the track. Every country has places off the line — eighty-nine
 of them, one film's worth in each — two hundred to a thousand metres either
 side, behind a ridge or round a headland, where the window cannot see them. A
 strip along the top shows a mark where something is and how far, and never what
 it is; the ground shows you a path. The name arrives only once you are standing
-in the place. Somebody walks with you.
+in the place. You go alone, which is the point — every one of these films opens
+with somebody who does not belong there yet.
 
 Two ways to just *be* somewhere. **R** puts you in a window seat on a train that
 runs the whole line by itself and turns round at the end, so it never finishes.

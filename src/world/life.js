@@ -50,16 +50,80 @@ const G = {};
 
 const HIP = 0.42;                     // where the legs pivot, in figure units
 
-function bodyGeo(variant) {
-  const key = 'body' + variant;
+// ---- what these people are wearing -----------------------------------------
+//
+// Eddie: "characters of each country should be according to the movies, not
+// all the same." One crowd walked through twenty-seven films in the same coat,
+// which is worse than it sounds — a Showa schoolboy in Iron Town and a
+// bathhouse spirit in a duffel coat both quietly say "this was generated".
+//
+// A wardrobe is a set of proportions rather than a new figure: how long the
+// garment is, how wide it falls, whether there is an apron over it, what is on
+// the head. That is enough. At the distance you see a crowd, a silhouette is a
+// hem line and a hat — nobody has ever recognised a character by their face in
+// a wide shot.
+const WARDROBE = {
+  // post-war and modern Japan: short jackets, bare heads, school caps
+  showa:  { hem: 0.235, len: 0.50, hat: 'cap',     legs: 1.0 },
+  // the old country: robes to the ankle, wide sleeves, straw kasa
+  edo:    { hem: 0.315, len: 0.78, hat: 'kasa',    legs: 0.34, sleeve: 1.5 },
+  // northern Europe: long skirts, aprons, headscarves and bonnets
+  euro:   { hem: 0.305, len: 0.68, hat: 'bonnet',  legs: 0.55, apron: true },
+  // the Adriatic in shirtsleeves
+  medit:  { hem: 0.215, len: 0.44, hat: 'flat',    legs: 1.0 },
+  // a dry country: hooded robes, everything covered
+  desert: { hem: 0.330, len: 0.86, hat: 'hood',    legs: 0.22, sleeve: 1.3 },
+  // people who work with iron and fire: aprons, head cloths, sleeves rolled
+  worker: { hem: 0.240, len: 0.52, hat: 'wrap',    legs: 1.0, apron: true },
+  // 1920: suits, and hats that mean something
+  y1920:  { hem: 0.200, len: 0.62, hat: 'homburg', legs: 1.0 },
+  // and the bathhouse guests, who do not have legs and do not need them
+  spirit: { hem: 0.360, len: 0.96, hat: 'mask',    legs: 0, float: true, sleeve: 1.7 },
+};
+const W = (name) => WARDROBE[name] ?? WARDROBE.showa;
+
+// Costume palettes. A Ghibli crowd is colour-graded to its film — the reds in
+// Market Chipping are not the reds in Iron Town, and a country whose people
+// are dressed in the wrong twelve colours reads as the wrong country even when
+// every building is right.
+const PALETTE = {
+  showa:  [[0.86,0.42,0.26],[0.30,0.38,0.60],[0.74,0.70,0.54],[0.34,0.46,0.34],
+           [0.92,0.80,0.52],[0.52,0.24,0.30],[0.22,0.28,0.36],[0.72,0.54,0.32]],
+  edo:    [[0.36,0.30,0.24],[0.24,0.28,0.30],[0.58,0.50,0.36],[0.30,0.36,0.32],
+           [0.46,0.34,0.28],[0.68,0.62,0.48],[0.22,0.24,0.28],[0.52,0.44,0.34]],
+  euro:   [[0.70,0.30,0.26],[0.28,0.34,0.52],[0.84,0.76,0.58],[0.36,0.44,0.30],
+           [0.56,0.34,0.44],[0.90,0.86,0.78],[0.34,0.30,0.26],[0.62,0.56,0.66]],
+  medit:  [[0.92,0.88,0.78],[0.86,0.74,0.50],[0.34,0.46,0.58],[0.78,0.42,0.30],
+           [0.90,0.90,0.86],[0.52,0.56,0.48],[0.70,0.66,0.54],[0.30,0.34,0.38]],
+  desert: [[0.78,0.68,0.48],[0.62,0.52,0.38],[0.86,0.78,0.62],[0.48,0.40,0.32],
+           [0.70,0.44,0.30],[0.56,0.50,0.42],[0.82,0.72,0.54],[0.40,0.36,0.30]],
+  worker: [[0.62,0.50,0.36],[0.40,0.34,0.30],[0.74,0.66,0.50],[0.52,0.28,0.24],
+           [0.30,0.32,0.34],[0.66,0.58,0.44],[0.44,0.42,0.38],[0.78,0.70,0.56]],
+  y1920:  [[0.30,0.30,0.32],[0.22,0.24,0.30],[0.52,0.48,0.42],[0.72,0.68,0.60],
+           [0.36,0.32,0.28],[0.88,0.84,0.76],[0.26,0.30,0.36],[0.60,0.54,0.46]],
+  spirit: [[0.32,0.26,0.34],[0.24,0.30,0.38],[0.44,0.32,0.30],[0.28,0.34,0.30],
+           [0.50,0.42,0.36],[0.20,0.22,0.30],[0.38,0.30,0.42],[0.34,0.38,0.42]],
+};
+
+function bodyGeo(variant, wd = 'showa') {
+  const key = 'body' + variant + wd;
   if (G[key]) return G[key];
+  const w = W(wd);
   const parts = [];
   const child = variant === 2;
   const S = child ? 0.72 : 1;
 
-  // the coat: shoulders narrow, hem wide, and it stops above the knee
-  const coat = new THREE.CylinderGeometry(0.145 * S, 0.235 * S, 0.50 * S, 9);
-  coat.translate(0, HIP + 0.25 * S, 0); parts.push(coat.toNonIndexed());
+  // the garment: shoulders narrow, hem wide. Its LENGTH is the wardrobe —
+  // a jacket that stops at the hip and a robe that reaches the floor are the
+  // same three lines of code and two entirely different centuries.
+  const coat = new THREE.CylinderGeometry(0.145 * S, w.hem * S, w.len * S, 9);
+  coat.translate(0, HIP + (0.50 - w.len * 0.5) * S, 0); parts.push(coat.toNonIndexed());
+  if (w.apron) {
+    // an apron over the front — the single clearest "this person works" cue
+    const ap = box(0.30 * S, w.len * 0.62 * S, 0.05 * S);
+    ap.translate(0, HIP + (0.44 - w.len * 0.42) * S, 0.16 * S);
+    parts.push(ap.toNonIndexed());
+  }
   // a collar, which is what stops the neck reading as a stick
   const collar = new THREE.CylinderGeometry(0.10 * S, 0.155 * S, 0.09 * S, 9);
   collar.translate(0, HIP + 0.52 * S, 0); parts.push(collar.toNonIndexed());
@@ -68,14 +132,17 @@ function bodyGeo(variant) {
   neck.translate(0, HIP + 0.575 * S, 0); parts.push(neck.toNonIndexed());
 
   // arms: down at the sides, angled slightly out, with hands
+  const sl = w.sleeve ?? 1;
   for (const s of [-1, 1]) {
-    const upper = new THREE.CylinderGeometry(0.042 * S, 0.036 * S, 0.44 * S, 6);
+    const upper = new THREE.CylinderGeometry(0.042 * S * sl, 0.036 * S * sl * sl, 0.44 * S, 6);
     upper.rotateZ(s * 0.13);
     upper.translate(s * 0.165 * S, HIP + 0.26 * S, 0);
     parts.push(upper.toNonIndexed());
-    const hand = new THREE.SphereGeometry(0.042 * S, 6, 5);
-    hand.translate(s * 0.205 * S, HIP + 0.045 * S, 0.01 * S);
-    parts.push(hand.toNonIndexed());
+    if (sl < 1.3) {                    // a wide sleeve swallows the hand
+      const hand = new THREE.SphereGeometry(0.042 * S, 6, 5);
+      hand.translate(s * 0.205 * S, HIP + 0.045 * S, 0.01 * S);
+      parts.push(hand.toNonIndexed());
+    }
   }
 
   if (variant === 1) {
@@ -92,9 +159,10 @@ function bodyGeo(variant) {
   return G[key];
 }
 
-function headGeo(variant) {
-  const key = 'head' + variant;
+function headGeo(variant, wd = 'showa') {
+  const key = 'head' + variant + wd;
   if (G[key]) return G[key];
+  const w = W(wd);
   const parts = [];
   const child = variant === 2;
   const S = child ? 0.72 : 1;
@@ -111,29 +179,71 @@ function headGeo(variant) {
   const back = new THREE.CylinderGeometry(R * 1.11, R * 1.02, R * 0.9, 9, 1, true);
   back.translate(0, HIP + 0.665 * S, -0.012);
   parts.push(back.toNonIndexed());
-  if (variant === 1) {
-    // a hat, on some of them, because a crowd where every head is the same
-    // shape reads as a production line
-    const brim = new THREE.CylinderGeometry(R * 1.9, R * 1.9, 0.016, 12);
-    brim.translate(0, HIP + 0.755 * S, 0); parts.push(brim.toNonIndexed());
-    const crown = new THREE.CylinderGeometry(R * 1.02, R * 1.12, 0.075, 10);
-    crown.translate(0, HIP + 0.795 * S, 0); parts.push(crown.toNonIndexed());
+  // What is on the head. The kasa is the loudest silhouette in the set — a
+  // cone a foot across turns a walking figure into an Edo road on its own —
+  // and the hood is the same trick for a dry country.
+  const top = HIP + 0.755 * S, hat = w.hat;
+  const wears = hat === 'kasa' || hat === 'hood' || hat === 'mask' || hat === 'bonnet' || variant === 1;
+  if (wears) {
+    if (hat === 'kasa') {
+      const k = new THREE.ConeGeometry(R * 2.5, R * 1.5, 12);
+      k.translate(0, top + R * 0.55, 0); parts.push(k.toNonIndexed());
+    } else if (hat === 'hood') {
+      const hd = new THREE.SphereGeometry(R * 1.42, 9, 7);
+      hd.scale(1, 1.15, 1.05); hd.translate(0, top - R * 0.42, -R * 0.10);
+      parts.push(hd.toNonIndexed());
+      const drape = new THREE.CylinderGeometry(R * 1.30, R * 1.85, R * 2.2, 9, 1, true);
+      drape.translate(0, top - R * 1.55, 0); parts.push(drape.toNonIndexed());
+    } else if (hat === 'mask') {
+      // not a face — a plain oval plate where one would be, which is what a
+      // spirit in this film wears instead of one
+      const mk = new THREE.SphereGeometry(R * 1.06, 9, 7, 0, Math.PI, 0.5, 2.0);
+      mk.scale(1, 1.16, 0.55); mk.translate(0, top - R * 0.62, R * 0.52);
+      mk.rotateY(-Math.PI / 2); parts.push(mk.toNonIndexed());
+    } else if (hat === 'bonnet') {
+      const bn = new THREE.SphereGeometry(R * 1.24, 9, 7, 0, Math.PI * 2, 0, 1.7);
+      bn.translate(0, top - R * 0.66, -R * 0.14); parts.push(bn.toNonIndexed());
+      const bk = new THREE.CylinderGeometry(R * 1.24, R * 1.36, R * 1.1, 9, 1, true);
+      bk.translate(0, top - R * 1.30, -R * 0.14); parts.push(bk.toNonIndexed());
+    } else if (hat === 'wrap') {
+      const wr = new THREE.CylinderGeometry(R * 1.18, R * 1.16, R * 0.85, 9);
+      wr.translate(0, top - R * 0.26, 0); parts.push(wr.toNonIndexed());
+    } else if (hat === 'homburg') {
+      const brim = new THREE.CylinderGeometry(R * 1.75, R * 1.75, 0.014, 12);
+      brim.translate(0, top, 0); parts.push(brim.toNonIndexed());
+      const crown = new THREE.CylinderGeometry(R * 1.00, R * 1.10, 0.105, 10);
+      crown.translate(0, top + 0.055, 0); parts.push(crown.toNonIndexed());
+    } else {
+      const brim = new THREE.CylinderGeometry(R * 1.9, R * 1.9, 0.016, 12);
+      brim.translate(0, top, 0); parts.push(brim.toNonIndexed());
+      const crown = new THREE.CylinderGeometry(R * 1.02, R * 1.12, 0.075, 10);
+      crown.translate(0, top + 0.04, 0); parts.push(crown.toNonIndexed());
+    }
   }
   G[key] = mergePN(parts);
   return G[key];
 }
 
 // One leg, hanging from the origin, so the instance matrix can swing it.
-function legGeo(variant) {
-  const key = 'leg' + variant;
+function legGeo(variant, wd = 'showa') {
+  const key = 'leg' + variant + wd;
   if (G[key]) return G[key];
+  const w = W(wd);
   const S = variant === 2 ? 0.72 : 1;
   const parts = [];
-  const thigh = new THREE.CylinderGeometry(0.048 * S, 0.040 * S, 0.42 * S, 6);
-  thigh.translate(0, -0.21 * S, 0); parts.push(thigh.toNonIndexed());
-  const boot = box(0.075 * S, 0.055 * S, 0.145 * S);
-  boot.translate(0, -0.44 * S, 0.028 * S); parts.push(boot.toNonIndexed());
-  G[key] = mergePN(parts);
+  // How much leg the garment leaves showing. A robe leaves a foot; a spirit
+  // leaves nothing, because it is not walking — the empty geometry keeps the
+  // rig identical instead of forking the whole update loop for one case.
+  const L = w.legs;
+  if (L > 0.01) {
+    const thigh = new THREE.CylinderGeometry(0.048 * S, 0.040 * S, 0.42 * S * L, 6);
+    thigh.translate(0, -0.21 * S * L, 0); parts.push(thigh.toNonIndexed());
+    const boot = box(0.075 * S, 0.055 * S, 0.145 * S);
+    boot.translate(0, -(0.42 * L + 0.03) * S, 0.028 * S); parts.push(boot.toNonIndexed());
+  }
+  G[key] = parts.length ? mergePN(parts) : new THREE.BufferGeometry()
+    .setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3))
+    .setAttribute('normal', new THREE.BufferAttribute(new Float32Array(9), 3));
   return G[key];
 }
 
@@ -257,12 +367,6 @@ function makePath(p) {
 
 // A crowd is read as a spread of values, not of hues: mostly muted earths and
 // indigos with two or three that carry, so the eye picks somebody to follow.
-const COAT_COLOURS = [
-  [0.86, 0.42, 0.26], [0.30, 0.38, 0.60], [0.74, 0.70, 0.54], [0.34, 0.46, 0.34],
-  [0.92, 0.80, 0.52], [0.52, 0.24, 0.30], [0.22, 0.28, 0.36], [0.72, 0.54, 0.32],
-  [0.44, 0.44, 0.48], [0.62, 0.66, 0.70], [0.30, 0.30, 0.28], [0.80, 0.60, 0.60],
-];
-
 function population(M, spec, seed) {
   const rnd = mulberry(seed);
   const path = makePath(spec.path);
@@ -287,20 +391,24 @@ function population(M, spec, seed) {
   if (kind === 'walkers') {
     // Three builds, and each gets its own set of meshes so the geometry can
     // differ. A crowd of one silhouette is a chorus line.
+    const wd = spec.cast ?? 'showa';
+    const pal = PALETTE[wd] ?? PALETTE.showa;
     const mix = [[], [], []];
     agents.forEach((a, i) => {
-      a.variant = rnd() < 0.18 ? 2 : (rnd() < 0.35 ? 1 : 0);
+      // Spirits do not bring their children to the bathhouse.
+      a.variant = W(wd).float ? (rnd() < 0.4 ? 1 : 0)
+                : rnd() < 0.18 ? 2 : (rnd() < 0.35 ? 1 : 0);
       mix[a.variant].push(i);
     });
     const c = new THREE.Color();
     mix.forEach((idx, v) => {
       if (!idx.length) return;
-      const body = new THREE.InstancedMesh(bodyGeo(v), M.coat, idx.length);
-      const head = new THREE.InstancedMesh(headGeo(v), M.skin, idx.length);
-      const legA = new THREE.InstancedMesh(legGeo(v), M.trouser, idx.length);
-      const legB = new THREE.InstancedMesh(legGeo(v), M.trouser, idx.length);
+      const body = new THREE.InstancedMesh(bodyGeo(v, wd), M.coat, idx.length);
+      const head = new THREE.InstancedMesh(headGeo(v, wd), M.skin, idx.length);
+      const legA = new THREE.InstancedMesh(legGeo(v, wd), M.trouser, idx.length);
+      const legB = new THREE.InstancedMesh(legGeo(v, wd), M.trouser, idx.length);
       idx.forEach((ai, k) => {
-        const col = COAT_COLOURS[(rnd() * COAT_COLOURS.length) | 0];
+        const col = pal[(rnd() * pal.length) | 0];
         c.setRGB(col[0] * 1.15, col[1] * 1.15, col[2] * 1.15);
         body.setColorAt(k, c);
         agents[ai].slot = k;
@@ -352,8 +460,13 @@ function population(M, spec, seed) {
           const ox = cos * a.side, oz = -sin * a.side;
           // Stride length is fixed, so step rate follows speed and nobody
           // moonwalks. Stopped, they settle rather than marching on the spot.
-          const swing = Math.sin(a.s / (0.62 * a.scale) + a.ph) * 0.58 * a.moving;
-          const bob = Math.abs(Math.cos(a.s / (0.62 * a.scale) + a.ph)) * 0.028 * a.scale * a.moving;
+          // A spirit has no stride, so it gets a slow rise and fall instead —
+          // and because its legs are empty geometry the same rig drives both.
+          const drift = W(spec.cast ?? 'showa').float;
+          const swing = drift ? 0 : Math.sin(a.s / (0.62 * a.scale) + a.ph) * 0.58 * a.moving;
+          const bob = drift
+            ? Math.sin(t * 0.7 + a.ph) * 0.075 * a.scale
+            : Math.abs(Math.cos(a.s / (0.62 * a.scale) + a.ph)) * 0.028 * a.scale * a.moving;
           pv.set(at.x + ox, at.y + bob, at.z + oz);
           sv.setScalar(a.scale);
 

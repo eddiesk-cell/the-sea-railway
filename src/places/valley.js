@@ -67,12 +67,12 @@ export default {
     {
       id: 'under-the-caps',
       name: 'The floor of the forest',
-      at: [820, -2000], r: 140, ground: 1.5,
+      at: [820, -1880], r: 140, ground: 1.5,
       trail: { from: [140, -1880], style: 'cut' },
       build: (M) => {
         const g = new THREE.Group();
         const rnd = mulberry(41);
-        const C = [820, -2000];
+        const C = [820, -1880];
         g.add(shelf(M, { r: 220, h: 1.5, mat: M.stone, seed: 9, rough: 0.2 }).translateX(C[0]).translateZ(C[1]));
 
         // Enormous caps overhead on thin stalks, and beneath them nothing but
@@ -116,12 +116,12 @@ export default {
     {
       id: 'the-acid-lake',
       name: 'The lake, and the shell in it',
-      at: [1100, -2560], r: 140, ground: 1.5,
+      at: [880, -2941], r: 140, ground: 1.5,
       trail: { from: [190, -2440], style: 'posts' },
       build: (M) => {
         const g = new THREE.Group();
         const rnd = mulberry(88);
-        const C = [1100, -2560];
+        const C = [880, -2941];
         g.add(shelf(M, { r: 230, h: 1.5, mat: M.turf, seed: 2, rough: 0.16 }).translateX(C[0]).translateZ(C[1]));
         const lake = new THREE.Mesh(new THREE.CircleGeometry(150, 36), M.acid);
         lake.rotation.x = -Math.PI / 2; lake.position.set(C[0], 1.55, C[1]);

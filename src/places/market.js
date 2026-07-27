@@ -27,12 +27,12 @@ export default {
     {
       id: 'the-hat-shop',
       name: 'The hat shop',
-      at: [500, -1240], r: 90, ground: 1.5,
+      at: [562, -1472], r: 90, ground: 1.5,
       trail: { from: [80, -1330], style: 'path' },
       build: (M) => {
         const g = new THREE.Group();
         const rnd = mulberry(2004);
-        const C = [500, -1240];
+        const C = [562, -1472];
         g.add(shelf(M, { r: 150, h: 1.5, mat: M.stone, seed: 6, rough: 0.08 }).translateX(C[0]).translateZ(C[1]));
 
         // A street of narrow fronts, and one of them has a bay window with hats

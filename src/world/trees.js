@@ -95,25 +95,83 @@ function blossom(rnd) {
 }
 
 // --- bamboo: a stand of canes ---
+//
+// The first version was seven bare poles with three flat blobs balanced on
+// each — Eddie: "more branches and leaves, they should look thicker on top".
+// He is describing the actual plant. A bamboo stand is a bare colonnade for
+// most of its height and a dense green ceiling above, and it is that contrast
+// that makes a bamboo grove feel like a room rather than a wood. Nothing
+// branches below halfway; everything branches at once above it.
 function bamboo(rnd) {
   const parts = [], wood = [];
-  const canes = 7;
+  const canes = 9;
+
   for (let i = 0; i < canes; i++) {
-    const a = rnd() * Math.PI * 2, d = rnd() * 0.13;
-    const h = 0.72 + rnd() * 0.28;
-    const c = new THREE.CylinderGeometry(0.010, 0.014, h, 5);
-    c.rotateZ((rnd() - 0.5) * 0.18);
-    c.rotateX((rnd() - 0.5) * 0.18);
-    c.translate(Math.cos(a) * d, h * 0.5, Math.sin(a) * d);
-    wood.push(c);
-    // a scruff of leaves at the top
-    for (let k = 0; k < 3; k++) {
-      const l = new THREE.SphereGeometry(0.055 + rnd() * 0.045, 5, 4);
-      l.scale(1, 0.4, 1);
-      l.translate(Math.cos(a) * d + (rnd() - 0.5) * 0.14,
-                  h * (0.72 + rnd() * 0.3),
-                  Math.sin(a) * d + (rnd() - 0.5) * 0.14);
-      parts.push(l);
+    const a = rnd() * Math.PI * 2, d = 0.03 + rnd() * 0.15;
+    const h = 0.70 + rnd() * 0.30;
+    const lean = (rnd() - 0.5) * 0.15, tip = (rnd() - 0.5) * 0.15;
+    const bx = Math.cos(a) * d, bz = Math.sin(a) * d;
+    // every piece of this cane gets the same lean, or it comes apart
+    const onCane = (g, y) => { g.rotateZ(lean); g.rotateX(tip); g.translate(bx, y, bz); return g; };
+
+    const culm = new THREE.CylinderGeometry(0.0075, 0.013, h, 5);
+    wood.push(onCane(culm, h * 0.5));
+
+    // the nodes — the swollen rings every 60 cm or so. They are what stops a
+    // green cylinder reading as a pipe.
+    const segs = 6;
+    for (let k = 1; k < segs; k++) {
+      const nd = new THREE.CylinderGeometry(0.0165, 0.0165, 0.011, 5);
+      wood.push(onCane(nd, h * (k / segs)));
+    }
+
+    // branches, upper half only, spiralling by the golden angle so no two sit
+    // above each other
+    for (let k = 0; k < 5; k++) {
+      const t = 0.50 + (k / 5) * 0.48 + rnd() * 0.05;
+      const y = h * t;
+      const ba = a + k * 2.39996 + rnd() * 0.4;
+      const up = 0.34 + rnd() * 0.30;              // young shoots reach, old ones droop
+      const len = 0.09 + rnd() * 0.09 + (t - 0.54) * 0.14;
+
+      // built lying along +X, then swung out and round — so the leaves land
+      // where the branch actually ends instead of near it
+      const swing = (g) => { g.rotateZ(up); g.rotateY(-ba); return onCane(g, y); };
+
+      const stick = new THREE.CylinderGeometry(0.0035, 0.0055, len, 4);
+      stick.rotateZ(-Math.PI / 2); stick.translate(len * 0.5, 0, 0);
+      wood.push(swing(stick));
+
+      // three sprays down the outer half, each a fan of long leaves. They are
+      // deliberately large: a bamboo leaf is a hand's length, and a spray
+      // built to scale disappears entirely at any distance you would look at
+      // a grove from — which is how the first version ended up as bare poles.
+      for (let j = 0; j < 3; j++) {
+        const at = len * (0.34 + j * 0.30);
+        const droop = -0.12 - rnd() * 0.38;
+        for (let b = 0; b < 3; b++) {
+          const leaf = new THREE.SphereGeometry(1, 4, 3);
+          leaf.scale(0.105 + rnd() * 0.055, 0.013, 0.030);
+          leaf.rotateY((b - 1) * (0.55 + rnd() * 0.55));
+          leaf.rotateZ(droop);
+          leaf.translate(at + 0.085, -0.006 * j, 0);
+          parts.push(swing(leaf));
+        }
+      }
+    }
+
+    // and the top itself, which is where a stand looks thickest: the cane runs
+    // out of stem and turns entirely into leaf. This is the whole silhouette —
+    // a bamboo grove is a ceiling held up on poles.
+    for (let k = 0; k < 9; k++) {
+      const crest = new THREE.SphereGeometry(1, 4, 3);
+      crest.scale(0.105 + rnd() * 0.065, 0.016, 0.034);
+      crest.rotateZ(-0.20 - rnd() * 0.55);
+      crest.rotateY(rnd() * 6.283);
+      crest.translate(0.075 + rnd() * 0.05, 0, 0);
+      const spin = new THREE.Matrix4().makeRotationY(k * 0.698 + rnd() * 0.4);
+      crest.applyMatrix4(spin);
+      parts.push(onCane(crest, h * (0.90 + rnd() * 0.14)));
     }
   }
   return { crown: mergeGeometries(parts, false), wood: mergeGeometries(wood, false) };
@@ -216,6 +274,7 @@ export function createForest(shared, sites, seed = 4242) {
     variants.forEach((items, vi) => {
       if (!items.length) return;
       const mesh = new THREE.InstancedMesh(geos[si][vi].crown, mats[si], items.length);
+      mesh.name = `${SPECIES[si].name}-crown-${vi}`;
       fillInstances(mesh, items);
       // every tree its own shade — a wood is never one colour
       const col = new THREE.Color();
@@ -228,6 +287,7 @@ export function createForest(shared, sites, seed = 4242) {
       group.add(mesh);
 
       const bark = new THREE.InstancedMesh(geos[si][vi].wood, woodMats[si], items.length);
+      bark.name = `${SPECIES[si].name}-wood-${vi}`;
       fillInstances(bark, items);
       // barely any jitter on the wood: bark varies far less than foliage does
       items.forEach((it, i) => {

@@ -248,7 +248,7 @@ order I would take it:
 1. ~~**Stepping off**~~ — done. **G** gets you down, holds the train, and puts
    you on the ground at walking pace with your feet on the actual floor.
 2. ~~**Three places, in one country**~~ — done, and Mononoke was the right test.
-3. ~~**Then the rest**~~ — done: eighty-six places across all twenty-seven
+3. ~~**Then the rest**~~ — done: eighty-nine places across all twenty-seven
    countries, each with a path leading to it and a name that only arrives once
    you are standing in it.
 
@@ -256,3 +256,38 @@ What is NOT done, and is the honest state of it: the places are first passes.
 They are built, reachable, named on arrival and lit correctly, but only a
 handful have been looked at from the ground one at a time. Expect to find
 things standing slightly wrong.
+
+
+## The Spirited Away country, second pass
+
+Eddie: *"for Spirited Away, you should have the market place, spirits, Yubaba's
+sister's house."* Two of those existed and one did not.
+
+- **The street that eats** — new. The food stalls the parents ate at, built as
+  a *street* rather than a square: two unbroken walls of lit shopfronts with a
+  gap of paving between them, running further than you can see the end of. The
+  length is the unease. Every counter is heaped, every lamp is on, and there is
+  nobody behind any of them.
+- **The pens** — new. Where they keep the ones who ate. Drawn as a working farm
+  and nothing else, because that is what makes it frightening.
+- **The halt in the water** — new. A platform on piles in open water with one
+  bench, one lamp and a blank nameboard. You can only be brought here.
+- **Yubaba's sister** already had a house — *The cottage at the end of the
+  line* — the furthest walk in the country. Nothing labels it as hers until you
+  are standing in it, which is the whole rule of this place.
+- **The spirits** now come ashore at dusk and walk up to the bathhouse. They
+  are a wardrobe, not a species: robes to the floor, wide sleeves, a plain
+  plate where a face would be, and no legs at all.
+
+## What the people wear
+
+`cast` on a crowd names its wardrobe (`WARDROBE` in `src/world/life.js`). It is
+one word per crowd and it changes the silhouette of a whole country: `edo`
+(robes and straw kasa), `euro` (long skirts, aprons, bonnets), `medit`
+(shirtsleeves and flat caps), `desert` (hooded robes), `worker` (aprons and
+head cloths), `y1920` (suits and homburgs), `showa` (short jackets, bare
+heads), `spirit` (floor-length, faceless, floating).
+
+A wardrobe is a set of proportions rather than a new figure — how long the
+garment is, how wide it falls, what is on the head. At the distance you see a
+crowd that is all a silhouette *is*.
