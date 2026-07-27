@@ -38,7 +38,7 @@ sky and back to the sea — rather than by release date.
 | 12 | The Rotary | Whisper of the Heart | 1995 | a suburb on a hill, the antique shop, the overlook at dawn |
 | 13 | The Cat Bureau | The Cat Returns | 2002 | a plaza built to a tenth scale, crossroads, tiny lit windows |
 | 14 | The Garden | Arrietty | 2010 | the world from four inches up — leaves like sails, dew, a watering can |
-| 15 | The Bamboo Grove | The Tale of the Princess Kaguya | 2013 | pale bamboo, ink-wash palette, moonlight, almost no colour |
+| 15 | **The Ink Country** | The Tale of the Princess Kaguya | 2013 | shui-mo: paper white, black ink and water. Bamboo, and mountains that recede into nothing. One vermilion seal. The only region with no colour and no sky. |
 | 16 | The Cedar Forest | Princess Mononoke | 1997 | mist, a river over stones, trees older than the language |
 | 17 | Iron Town | Princess Mononoke | 1997 | palisade and furnace smoke on a lake, torchlight, a scar in the hill |
 | 18 | The Meadow | Howl's Moving Castle | 2004 | alpine flowers to the horizon, a lake, something walking on the skyline |
@@ -73,11 +73,33 @@ Each region is one file exporting a description, not bespoke code:
 Regions are built when the train comes within range and disposed when it leaves,
 so the cost is always three regions, never twenty-seven.
 
+## The Ink Country
+
+Eddie's idea, and it lands on exactly the right film — Kaguya is the one Ghibli
+drew as brush and charcoal rather than paint, so an ink-wash region is not a
+departure from the tribute, it *is* the tribute.
+
+It needs almost nothing new in the world and everything new in the finish:
+
+- **No sky.** The background is paper — a warm white with tooth and a few
+  water stains. Nothing gradient, nothing lit.
+- **Distance goes to white, not to haze.** Mountains stack as flat silhouettes,
+  each paler than the one in front, until the furthest simply isn't there. That
+  single rule is what makes a Song dynasty landscape read as depth.
+- **Ink instead of shading.** The Kuwahara pass stays; the finish pass swaps
+  colour grading for wet edges — ink pools where a silhouette turns away,
+  bleeds along the grain of the paper, and breaks where the brush ran dry.
+- **One colour in the whole region.** A vermilion seal, somewhere you have to
+  look for it.
+- Bamboo the world already knows how to grow — it just stops being green.
+
 ## Phases
 
 1. ✅ **Ride the train.** Window seat, roof, step off. Cloud shadows. Continuous line.
 2. **The region system.** Route, streaming, palette cross-fade at the borders.
-3. **Regions 8, 22, 18** — the bus stop, the valley of the wind, the meadow.
-4. **Regions 5, 24, 16** — Koriko, Laputa, the cedar forest.
-5. **Stops.** Stations, stepping off, a whistle that brings the train back.
-6. **The rest**, and the loop back to the beginning.
+3. **The Ink Country** — the shui-mo region, because it is the one that proves
+   the finish pass can be more than one look.
+4. **Regions 8, 22, 18** — the bus stop, the valley of the wind, the meadow.
+5. **Regions 5, 24, 16** — Koriko, Laputa, the cedar forest.
+6. **Stops.** Stations, stepping off, a whistle that brings the train back.
+7. **The rest**, and the loop back to the beginning.
