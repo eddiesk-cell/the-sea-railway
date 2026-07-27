@@ -189,6 +189,9 @@ It needs almost nothing new in the world and everything new in the finish:
    place and the camera circles it for as long as you leave it alone.
 7. ✅ **The rest of the line.** All twenty-seven countries laid, every film in
    the catalogue on it, and the last stop is a blank page.
-8. **Stops.** Platforms, stepping off, a whistle that brings the train back —
-   and the places off the main line: the pool where the Deer God walks, the
-   village Ashitaka rode out of, the things you only find by getting down.
+8. **Stops, and the places off the line.** Platforms, stepping off, a whistle
+   that brings the train back — and then the ninety-odd other places these
+   films are made of, two hundred to eight hundred metres either side of the
+   track, none of them labelled: the pool where the Deer God walks, the village
+   Ashitaka rode out of, Kamaji's boiler room, the borrowers' house under the
+   floor. Full plan in `PLACES.md`.
