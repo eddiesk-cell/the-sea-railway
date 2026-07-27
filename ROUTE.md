@@ -16,8 +16,23 @@ in each region are original silhouettes. The tribute is to the landscapes.
 | # | Region | Film | Year | State |
 |---|---|---|---|---|
 | 1 | **The Sea Railway** — flooded plain, the bathhouse, the torii | Spirited Away | 2001 | ✅ live |
+| 2 | **The Drowned Road** — a coast road under the tide, and a shoal of fish that are also waves | Ponyo | 2008 | ✅ live |
+| 5 | **Koriko** — a harbour town stacked up a hill, and a clock tower | Kiki's Delivery Service | 1989 | ✅ live |
 | 8 | **The Bus Stop** — rice paddies at night, hard rain, one lamp, the camphor | My Neighbour Totoro | 1988 | ✅ live |
-| 15 | **The Ink Country** — karst peaks in mist, a bamboo grove, a pavilion | The Tale of the Princess Kaguya | 2013 | ✅ live |
+| 15 | **The Ink Country** — Huangshan in slabs, a sea of cloud, cliff pines, bamboo | The Tale of the Princess Kaguya | 2013 | ✅ live |
+| 16 | **The Cedar Forest** — columns, a river over stones, lights among the trunks | Princess Mononoke | 1997 | ✅ live |
+| 18 | **The Meadow** — alpine flowers, and something walking the skyline | Howl's Moving Castle | 2004 | ✅ live |
+| 22 | **The Valley of the Wind** — windmills, ochre dust, a forest lit from inside | Nausicaä | 1984 | ✅ live |
+| 24 | **Laputa** — the island, its root, and the vines hanging off it | Castle in the Sky | 1986 | ✅ live |
+
+**Sound.** Every region declares its own soundscape and those levels cross-fade
+at the border exactly like the sky does, so a place is only ever heard where it
+is. Nothing is recorded: leaves are filtered noise swelling with the same gust
+that bends the canes in the shader, canes knocking are one oscillator with an
+envelope, rain is a hiss with a rumble under it, a river is that hiss an octave
+up and never changing, and wind is it two octaves down, breathing. **M** turns
+it off. Browsers stay silent until you touch the page, so the first click
+starts it.
 
 Ride it (**R**) and the world changes around you over about three hundred
 metres, with no seam anywhere: out of the sunset and into the rain, and then

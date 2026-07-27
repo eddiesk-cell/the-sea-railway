@@ -225,7 +225,7 @@ export function createGrass(shared, opts = {}) {
 
         // ---- haze ----
         float fogA = 1.0 - exp(-pow(dist * uFogDensity, 1.34) * 1.9);
-        fogA = clamp(fogA + mistAt(vWorld.y, dist) * (1.0 - fogA), 0.0, 1.0);
+        fogA = clamp(fogA + mistAt(vWorld, dist) * (1.0 - fogA), 0.0, 1.0);
         col = mix(col, uFogColor, fogA);
 
         gl_FragColor = vec4(col, 1.0);

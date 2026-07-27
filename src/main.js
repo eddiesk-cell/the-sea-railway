@@ -3,7 +3,14 @@ import { createSky } from './world/sky.js';
 import { atmosphereAt, REGIONS, LINE, LINE_END } from './regions/index.js';
 import { buildInkCountry } from './regions/inkCountry.js';
 import { buildBusStop } from './regions/busStop.js';
+import { buildDrownedRoad } from './regions/drownedRoad.js';
+import { buildKoriko } from './regions/koriko.js';
+import { buildCedarForest } from './regions/cedarForest.js';
+import { buildMeadow } from './regions/meadow.js';
+import { buildValley } from './regions/valley.js';
+import { buildLaputa } from './regions/laputa.js';
 import { createRain } from './world/rain.js';
+import { createSound, windAt } from './world/sound.js';
 import { createWater } from './world/water.js';
 import { createBathhouse } from './world/bathhouse.js';
 import { createRailway, createTrain } from './world/railway.js';
@@ -46,6 +53,10 @@ const shared = {
   uMist:       { value: 0 },
   uMistTop:    { value: 40 },
   uWet:        { value: 0 },
+  uWind:       { value: 0.7 },
+  uDeckY:      { value: new THREE.Vector3(0, 0, 0) },
+  uDeckH:      { value: new THREE.Vector3(0, 0, 0) },
+  uDeckAmt:    { value: 0 },
   uFogColor:   { value: new THREE.Vector3(0.5, 0.5, 0.55) },
   uFogDensity: { value: 0.00045 },
   uCamPos:     { value: new THREE.Vector3() },
@@ -95,19 +106,40 @@ const grass = createGrass(shared, { count: 1_600_000 });
 scene.add(grass.mesh);
 
 // --- the regions up the line ---
-// The Bus Stop sits between the sea and the ink, because the route is ordered
-// by how the land flows and rice country belongs between a coast and a mountain.
-const bus = buildBusStop(shared);
-scene.add(bus.group);
+// Nine countries is far too much to build before the first frame, so each is
+// made the first time the line comes near it and then kept. `shift` slides a
+// region's geometry from the coordinates it was authored in to its place in
+// the running order, which is what lets the order change without touching a
+// builder.
+const BUILDERS = {
+  drowned: () => buildDrownedRoad(shared),
+  koriko:  () => buildKoriko(shared),
+  bus:     () => buildBusStop(shared),
+  ink:     () => buildInkCountry(shared),
+  cedar:   () => buildCedarForest(shared),
+  meadow:  () => buildMeadow(shared),
+  valley:  () => buildValley(shared),
+  laputa:  () => buildLaputa(shared),
+};
+const live = new Map();
 
-const ink = buildInkCountry(shared);
-// built in its own coordinates, then slid down the line to make room
-ink.group.position.z = REGIONS.find(r => r.id === 'ink').zNear + 1150;
-scene.add(ink.group);
+function ensureRegion(r) {
+  if (!r || live.has(r.id) || !BUILDERS[r.id]) return;
+  const built = BUILDERS[r.id]();
+  built.group.position.z += r.shift;
+  scene.add(built.group);
+  live.set(r.id, built);
+}
+function ensureNear(z, reach = 1600) {
+  REGIONS.forEach(r => {
+    if (z < r.zNear + reach && z > r.zFar - reach) ensureRegion(r);
+  });
+}
 
-// --- weather ---
-const rain = createRain(shared, { count: 9000 });
+// --- weather, and the sound of it ---
+const rain = createRain(shared, { count: 6500 });
 scene.add(rain.mesh);
+const sound = createSound();
 
 // --- far country: headlands stacked into the haze ---
 {
@@ -184,8 +216,12 @@ let hour = 0.44;
 let currentRegion = null;
 const coolA = new THREE.Color(0x2a3d63), coolB = new THREE.Color(0x38507c);
 
+let atmo = null;
+const INK = REGIONS.find(r => r.id === 'ink');
+
 function applyAtmosphere(z) {
   const a = atmosphereAt(z, hour);
+  atmo = a;
 
   shared.uHour.value = hour;
   shared.uZenith.value.copy(a.zenith);
@@ -202,13 +238,18 @@ function applyAtmosphere(z) {
   shared.uMist.value = a.mist;
   shared.uMistTop.value = a.mistTop;
   shared.uWet.value = a.wet;
+  shared.uWind.value = windGust * a.wind;
+  shared.uDeckY.value.set(a.decks[0][0], a.decks[1][0], a.decks[2][0]);
+  shared.uDeckH.value.set(a.decks[0][1], a.decks[1][1], a.decks[2][1]);
+  shared.uDeckAmt.value = a.deckAmt;
   water.uniforms.uFogColor.value.copy(a.fog);
   grass.uniforms.uFogColor.value.copy(a.fog);
 
   // the one warm thing in view gets to paint itself onto the water, and which
   // one that is depends entirely on where you are
-  if (a.wet > 0.5) {
-    water.uniforms.uGlowA.value.copy(bus.lamp);
+  const busLamp = live.get('bus');
+  if (a.wet > 0.5 && busLamp) {
+    water.uniforms.uGlowA.value.copy(busLamp.lamp).setZ(busLamp.lamp.z + REGIONS.find(r => r.id === 'bus').shift);
     water.uniforms.uGlowAr.value = 3.4;
   } else {
     water.uniforms.uGlowA.value.set(BATH.x, 58, BATH.z);
@@ -223,8 +264,9 @@ function applyAtmosphere(z) {
   // lamps only mean anything where there are lamps
   const night = a.wet > 0.5 ? 1
     : (1 - THREE.MathUtils.smoothstep(hour, 0.15, 0.85)) * (1 - a.ink);
-  if (a.wet > 0.5) {
-    shared.uLamps.value[0].set(bus.lamp.x, bus.lamp.y, bus.lamp.z, 26);
+  if (a.wet > 0.5 && busLamp) {
+    const bz = busLamp.lamp.z + REGIONS.find(r => r.id === 'bus').shift;
+    shared.uLamps.value[0].set(busLamp.lamp.x, busLamp.lamp.y, bz, 26);
     shared.uLampCols.value[0].setRGB(0.42, 0.26, 0.10);
   } else {
     shared.uLamps.value[0].set(rail.lampWorld.x, rail.lampWorld.y, rail.lampWorld.z, 16 * (1 - a.ink));
@@ -365,6 +407,7 @@ let destIndex = null;   // where it is headed, while it is headed anywhere
 function travelTo(i) {
   destIndex = ((i % REGIONS.length) + REGIONS.length) % REGIONS.length;
   line.target = REGIONS[destIndex].station;
+  ensureRegion(REGIONS[destIndex]);
   if (state.mode !== 'ride') {
     state.mode = 'ride';
     state.seat = 'window';
@@ -472,6 +515,7 @@ addEventListener('keydown', (e) => {
   if (k === 'f') { state.mode === 'cine' ? goFree() : goCine(); mark(); return; }
   if (k === 'r') { rideNext(); return; }
   if (k === 'p') { togglePaint(); return; }
+  if (k === 'm') { toggleSound(); return; }
   const from = destIndex === null ? stopIndex : destIndex;
   if (k === 'n' || k === 'arrowright') { travelTo(from + 1); return; }
   if (k === 'b' || k === 'arrowleft') { travelTo(from - 1); return; }
@@ -481,11 +525,18 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => state.keys.delete(e.key.toLowerCase()));
 addEventListener('blur', () => state.keys.clear());
 
-function mark() { state.lastInput = clock; hintSeen(); }
+function mark() {
+  state.lastInput = clock;
+  hintSeen();
+  // a browser will not make a sound until it has been touched
+  if (soundOn) sound.start();
+}
 
 // ===========================================================================
 // UI
 // ===========================================================================
+let windGust = 0.7;
+let lastMix = {};
 let paintOn = true;
 const paintToggle = document.getElementById('t-paint');
 function togglePaint() {
@@ -496,6 +547,14 @@ function togglePaint() {
   post.finish.uniforms.uVignette.value = paintOn ? 0.55 : 0.3;
 }
 paintToggle.addEventListener('click', togglePaint);
+
+let soundOn = true;
+const soundToggle = document.getElementById('t-sound');
+function toggleSound() {
+  soundOn = sound.toggle();
+  soundToggle.classList.toggle('on', soundOn);
+}
+soundToggle.addEventListener('click', toggleSound);
 
 const grassSlider = document.getElementById('s-grass');
 const grassLabel = document.getElementById('v-grass');
@@ -570,6 +629,7 @@ const trainHead = new THREE.Vector3();
 setHourFromSlider();
 setGrassFromSlider();
 paintLine();
+ensureNear(0);
 applyAtmosphere(0);
 
 function frame() {
@@ -583,7 +643,9 @@ function frame() {
   // ---- drop back into the cinematic after a while alone ----
   if (state.mode === 'free' && clock - state.lastInput > 16) goCine();
 
+  windGust = windAt(clock);
   advanceLine(dt);
+  ensureNear(state.mode === 'ride' ? line.z : camera.position.z);
 
   if (state.mode === 'ride') {
     // Dead centre of a carriage, not near its end — sit by the join and the
@@ -668,12 +730,28 @@ function frame() {
   shared.uLampCols.value[1].setRGB(0.22, 0.17, 0.10);
   window.__trainZ = z;
 
-  // the plain has no edge — the mirror travels with you
+  // the plain has no edge, and neither does the track — the mirror, the
+  // ballast and the sleepers all travel with the camera, snapped so nothing
+  // slides. Twenty-four kilometres of line does not have to exist at once.
   water.mesh.position.set(camera.position.x, 0, camera.position.z);
+  rail.follow(camera.position.z);
   rain.update(camera.position, shared.uWet.value);
 
-  ink.update(clock);
-  bus.update(clock);
+  // Each region declares its own soundscape and those levels have already
+  // cross-faded at the border. On top of that, a point source gets a vicinity:
+  // the grove you can hear is the one you are actually standing in.
+  const mix = Object.assign({}, atmo.sound);
+  const gz = camera.position.z - INK.shift;
+  const dz = gz > -1400 ? gz + 1400 : (gz < -3900 ? -3900 - gz : 0);
+  const dx = Math.max(0, Math.abs(camera.position.x) - 70);
+  const grove = (1 - THREE.MathUtils.smoothstep(Math.abs(dz), 0, 500))
+              * (1 - THREE.MathUtils.smoothstep(dx, 0, 240));
+  if (mix.leaves) mix.leaves *= 0.25 + 0.75 * grove;
+  if (mix.knock) mix.knock *= grove;
+  lastMix = mix;
+  sound.update(dt, mix, shared.uWind.value);
+
+  live.forEach(r => r.update && r.update(clock));
   spirits.update(clock);
   lanterns.update(clock);
   steam.update(clock);
@@ -707,6 +785,9 @@ function applyDpr() {
 
 // jump the clock, for checking things that only happen sometimes
 window.__jump = (t) => { clock = t; };
+
+// what the mixer is actually being asked for, for checking the soundscape
+window.__mix = () => ({ live: sound.live, on: sound.on, mix: lastMix, wind: +shared.uWind.value.toFixed(2) });
 
 // drop straight onto a stop without the run down the line
 window.__stop = (i) => {

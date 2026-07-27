@@ -39,6 +39,7 @@ npm run build && cp dist/index.html "The Sea Railway.html"
 | Let go, back to the cinematic | F |
 | Show or hide the panel | H |
 | Painterly on/off | P |
+| Sound on/off | M |
 
 Leave it alone for sixteen seconds and it takes the camera back, on a slow
 four-minute pass through the world.

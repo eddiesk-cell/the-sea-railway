@@ -56,15 +56,51 @@ uniform vec3  uInkTone;    // the colour of a full-loaded brush
 uniform float uMist;       // low-lying mist: how much of it
 uniform float uMistTop;    // and how high it lies
 uniform float uWet;        // rain: 0 dry .. 1 coming down hard
+uniform float uWind;       // the gust, 0 still .. ~1.1 blowing
 
 // Mist eats the bottom of things. In a shui-mo landscape it is the whole
 // reason a mountain reads as far away rather than as tall.
-float mistAt(float worldY, float dist){
-  if (uMist <= 0.001) return 0.0;
-  return uMist
-       * smoothstep(uMistTop, uMistTop - 40.0, worldY)
-       * smoothstep(40.0, 320.0, dist);
+//
+// A ground fog alone is not enough, though. What makes the peaks in a Huangshan
+// scroll read as MOUNTAINS is that the cloud lies in DECKS — flat-bottomed
+// banks at two or three altitudes, cutting across everything, so no peak ever
+// shows you its own foot and the eye has to guess how far down the rock goes.
+// uDecks holds three (altitude, thickness) pairs; uDeckAmt fades the lot.
+uniform vec3 uDeckY;
+uniform vec3 uDeckH;
+uniform float uDeckAmt;
+
+float mistAt(vec3 P, float dist){
+  float m = 0.0;
+  if (uMist > 0.001){
+    m = uMist
+      * smoothstep(uMistTop, uMistTop - 40.0, P.y)
+      * smoothstep(40.0, 320.0, dist);
+  }
+  if (uDeckAmt > 0.001){
+    // Ragged and drifting, and thicker underneath than on top, because cloud
+    // sits ON air — a flat-bottomed bank with a soft head.
+        // Distance is what a deck is FOR. Veil the near rock as well and the
+    // whole country turns to paper; the near rank has to stay nearly black or
+    // there is no tone left to measure the far ranks against.
+    float far = smoothstep(320.0, 1700.0, dist);
+    float n = fbm(P.xz * 0.0042 + vec2(uTime * 0.006, uTime * 0.0025));
+    float n2 = fbm(P.xz * 0.017 - vec2(uTime * 0.011, 0.0));
+    for (int i = 0; i < 3; i++){
+      float y0 = uDeckY[i] + (n - 0.5) * 22.0 + (n2 - 0.5) * 9.0;
+      float h = uDeckH[i];
+      if (h <= 0.5) continue;
+      float d = (P.y - y0) / h;
+      // A deck must leave CLEAR AIR between itself and the next one, or the
+      // mountains do not emerge from the cloud, they simply cease to exist.
+      float band = smoothstep(1.05, 0.15, abs(d)) * (d < 0.0 ? 1.0 : 0.55);
+      band *= 0.66 + 0.30 * n2;
+      m = max(m, band * uDeckAmt * far * 0.78);
+    }
+  }
+  return clamp(m, 0.0, 1.0);
 }
+float mistAt(float worldY, float dist){ return mistAt(vec3(0.0, worldY, 0.0), dist); }
 
 float lumaOf(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 

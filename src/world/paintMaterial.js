@@ -55,6 +55,7 @@ export function makePaintMaterial(shared, opts = {}) {
     uniforms, side, transparent, depthWrite,
     vertexShader: /* glsl */`
       uniform float uTime;
+      uniform float uWind;   // the vertex stage does not include the sky chunk
       // three declares the instanceColor attribute itself when the define is on
       varying vec3 vWorld;
       varying vec3 vNormalW;
@@ -74,12 +75,16 @@ export function makePaintMaterial(shared, opts = {}) {
         #endif
         vec4 wp = mm * vec4(position, 1.0);
         ${sway > 0 ? /* glsl */`
-        {   // wind: bends hardest at the tip, in step with its neighbours
+        {   // Wind: bends hardest at the tip, and arrives in gusts that cross
+          // the land as long waves — so a grove ripples rather than shivering
+          // uniformly. uWind is the same number the sound is mixed with.
           float hgt = length(mm[1].xyz);
           float ph  = wp.x * 0.28 + wp.z * 0.21;
+          float gph = wp.x * 0.019 + wp.z * 0.014;
+          float gust = uWind * (0.55 + 0.45 * sin(uTime * 0.5 - gph));
           float k   = clamp(position.y, 0.0, 4.0);
           float b   = sin(uTime * 1.05 + ph) * 0.62 + sin(uTime * 2.31 + ph * 1.7) * 0.38;
-          b *= ${sway.toFixed(4)} * k * k * hgt;
+          b *= ${sway.toFixed(4)} * k * k * hgt * gust;
           wp.x += b;
           wp.z += b * 0.55;
         }` : ''}
@@ -170,7 +175,7 @@ export function makePaintMaterial(shared, opts = {}) {
 
         // ---- haze ----
         float fogA = 1.0 - exp(-pow(dist * uFogDensity, 1.34) * 1.9);
-        float m = mistAt(vWorld.y, dist);
+        float m = mistAt(vWorld, dist);
         fogA = clamp(fogA + m * (1.0 - fogA), 0.0, 1.0);
         col = mix(col, uFogColor, fogA);
 

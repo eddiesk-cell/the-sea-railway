@@ -21,14 +21,20 @@ export function createRailway(shared) {
   const tile = makePaintMaterial(shared, { color: '#232b38', shadowTint: '#0c111e', rim: 0.75, bands: 3, grain: 0.14, side: THREE.DoubleSide });
   const paper = makePaintMaterial(shared, { color: '#d9c9a4', shadowTint: '#4a4032', rim: 1.0, bands: 3, grain: 0.14 });
 
+  // The line is twenty-four kilometres long and none of it has to exist at
+  // once: everything uniform about the track lives in a group that travels
+  // with the camera, snapped to the sleeper pitch so nothing appears to slide.
+  const track = new THREE.Group();
+  group.add(track);
+
   // ---- embankment: a wide drowned shelf, a dry crown on top ----
   const shelf = new THREE.Mesh(box(11.5, 1.0, TRACK_LEN), wetStone);
   shelf.position.y = -0.22;
-  group.add(shelf);
+  track.add(shelf);
 
   const crown = new THREE.Mesh(box(7.6, 0.9, TRACK_LEN), ballast);
   crown.position.y = 0.30;
-  group.add(crown);
+  track.add(crown);
 
   // ---- sleepers ----
   const near = 4800, spacing = 1.55;
@@ -41,13 +47,13 @@ export function createRailway(shared) {
   }
   fillInstances(sleepers, items);
   sleepers.frustumCulled = false;
-  group.add(sleepers);
+  track.add(sleepers);
 
   // ---- rails ----
   for (const sx of [-RAIL_HALF, RAIL_HALF]) {
     const rail = new THREE.Mesh(box(0.16, 0.24, TRACK_LEN), steel);
     rail.position.set(sx, 1.02, 0);
-    group.add(rail);
+    track.add(rail);
   }
 
   // ---- the platform ----
@@ -130,7 +136,10 @@ export function createRailway(shared) {
 
   const lampWorld = new THREE.Vector3(5.6 - 1.6, 5.15, 4 + 6.5);
 
-  return { group, lampWorld, lampMat, platform: plat };
+  // snap to the sleeper pitch: at any other offset the ties visibly crawl
+  const follow = (z) => { track.position.z = Math.round(z / spacing) * spacing; };
+
+  return { group, lampWorld, lampMat, platform: plat, follow };
 }
 
 // ---------------------------------------------------------------------------
