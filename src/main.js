@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { createSky } from './world/sky.js';
-import { atmosphereAt } from './regions/index.js';
+import { atmosphereAt, REGIONS, LINE, LINE_END } from './regions/index.js';
 import { buildInkCountry } from './regions/inkCountry.js';
+import { buildBusStop } from './regions/busStop.js';
+import { createRain } from './world/rain.js';
 import { createWater } from './world/water.js';
 import { createBathhouse } from './world/bathhouse.js';
 import { createRailway, createTrain } from './world/railway.js';
@@ -43,6 +45,7 @@ const shared = {
   uInkTone:    { value: new THREE.Color('#12141c').convertSRGBToLinear() },
   uMist:       { value: 0 },
   uMistTop:    { value: 40 },
+  uWet:        { value: 0 },
   uFogColor:   { value: new THREE.Vector3(0.5, 0.5, 0.55) },
   uFogDensity: { value: 0.00045 },
   uCamPos:     { value: new THREE.Vector3() },
@@ -91,9 +94,20 @@ scene.add(reeds.mesh);
 const grass = createGrass(shared, { count: 1_600_000 });
 scene.add(grass.mesh);
 
-// --- the next region up the line ---
+// --- the regions up the line ---
+// The Bus Stop sits between the sea and the ink, because the route is ordered
+// by how the land flows and rice country belongs between a coast and a mountain.
+const bus = buildBusStop(shared);
+scene.add(bus.group);
+
 const ink = buildInkCountry(shared);
+// built in its own coordinates, then slid down the line to make room
+ink.group.position.z = REGIONS.find(r => r.id === 'ink').zNear + 1150;
 scene.add(ink.group);
+
+// --- weather ---
+const rain = createRain(shared, { count: 9000 });
+scene.add(rain.mesh);
 
 // --- far country: headlands stacked into the haze ---
 {
@@ -187,8 +201,19 @@ function applyAtmosphere(z) {
   shared.uInkTone.value.copy(a.inkTone);
   shared.uMist.value = a.mist;
   shared.uMistTop.value = a.mistTop;
+  shared.uWet.value = a.wet;
   water.uniforms.uFogColor.value.copy(a.fog);
   grass.uniforms.uFogColor.value.copy(a.fog);
+
+  // the one warm thing in view gets to paint itself onto the water, and which
+  // one that is depends entirely on where you are
+  if (a.wet > 0.5) {
+    water.uniforms.uGlowA.value.copy(bus.lamp);
+    water.uniforms.uGlowAr.value = 3.4;
+  } else {
+    water.uniforms.uGlowA.value.set(BATH.x, 58, BATH.z);
+    water.uniforms.uGlowAr.value = 78;
+  }
 
   post.kuwahara.uniforms.uExposure.value = a.exposure;
   post.finish.uniforms.uInkMode.value = a.ink;
@@ -196,9 +221,15 @@ function applyAtmosphere(z) {
   post.finish.uniforms.uVignette.value = a.vignette;
 
   // lamps only mean anything where there are lamps
-  const night = (1 - THREE.MathUtils.smoothstep(hour, 0.15, 0.85)) * (1 - a.ink);
-  shared.uLamps.value[0].set(rail.lampWorld.x, rail.lampWorld.y, rail.lampWorld.z, 16 * (1 - a.ink));
-  shared.uLampCols.value[0].setRGB(0.26, 0.155, 0.062).multiplyScalar(0.55 + night * 1.1);
+  const night = a.wet > 0.5 ? 1
+    : (1 - THREE.MathUtils.smoothstep(hour, 0.15, 0.85)) * (1 - a.ink);
+  if (a.wet > 0.5) {
+    shared.uLamps.value[0].set(bus.lamp.x, bus.lamp.y, bus.lamp.z, 26);
+    shared.uLampCols.value[0].setRGB(0.42, 0.26, 0.10);
+  } else {
+    shared.uLamps.value[0].set(rail.lampWorld.x, rail.lampWorld.y, rail.lampWorld.z, 16 * (1 - a.ink));
+    shared.uLampCols.value[0].setRGB(0.26, 0.155, 0.062).multiplyScalar(0.55 + night * 1.1);
+  }
 
   post.bloom.strength = (0.30 + night * 0.34) * a.bloom;
   post.finish.uniforms.uCool.value.copy(coolA).lerp(coolB, 1 - night);
@@ -289,7 +320,7 @@ function rideNext() {
     state.mode = 'ride';
     state.seat = 'window';
     state.yaw = Math.PI / 2;       // looking out of the left-hand window
-    state.pitch = -0.05;
+    state.pitch = 0.0;
     rideLabel(true, 'window seat');
   } else if (state.seat === 'window') {
     state.seat = 'roof';
@@ -308,6 +339,81 @@ const rideEl = document.getElementById('ride');
 function rideLabel(on, text) {
   rideEl.textContent = text ? text + ' — R to move, F to let go' : '';
   rideEl.classList.toggle('show', !!on);
+}
+
+// ===========================================================================
+// The journey
+//
+// One number is the whole thing: where the train is on the line. It cruises
+// down the line on its own, and the stop controls give it somewhere to be —
+// which is what turns a world you can see one corner of into a line you can
+// travel. When it reaches the end of what is laid, it runs back to the start,
+// because the line is supposed to come round again.
+// ===========================================================================
+const CAR_PITCH = 18.6;              // one carriage plus its coupling
+
+const line = {
+  z: REGIONS[0].station,
+  cruise: 34,
+  speed: 34,
+  target: null,
+  warp: 0,                            // 0 cruising .. 1 running flat out
+};
+let stopIndex = 0;      // where the train actually is
+let destIndex = null;   // where it is headed, while it is headed anywhere
+
+function travelTo(i) {
+  destIndex = ((i % REGIONS.length) + REGIONS.length) % REGIONS.length;
+  line.target = REGIONS[destIndex].station;
+  if (state.mode !== 'ride') {
+    state.mode = 'ride';
+    state.seat = 'window';
+    state.yaw = Math.PI / 2;
+    state.pitch = 0.0;
+    rideLabel(true, 'window seat');
+  }
+  paintLine();
+  mark();
+}
+
+// which built stop the train is closest to, so the map is never lying
+function nearestStop(z) {
+  let best = 0, bd = Infinity;
+  REGIONS.forEach((r, i) => {
+    const d = Math.abs(r.station - z);
+    if (d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+
+function advanceLine(dt) {
+  if (line.target !== null) {
+    const d = line.target - line.z;
+    const ad = Math.abs(d);
+    if (ad < 3) {
+      line.z = line.target; line.target = null; destIndex = null;
+      line.speed = line.cruise; line.warp = 0;
+    } else {
+      // hard away, easy in — the last three hundred metres are a deceleration
+      const want = Math.min(900, 45 + ad * 1.15);
+      line.speed = THREE.MathUtils.lerp(line.speed, want, 1 - Math.pow(0.05, dt));
+      line.z += Math.sign(d) * line.speed * dt;
+      line.warp = THREE.MathUtils.clamp((line.speed - 90) / 700, 0, 1);
+    }
+  } else {
+    line.z -= line.cruise * dt;
+    line.warp = 0;
+    if (line.z < LINE_END + 60) travelTo(0);       // round again
+  }
+  // the ride is smoother if the speed is felt rather than read
+  const fov = 52 + line.warp * 13;
+  if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+
+  // The map tracks where YOU are — which is the train only while you are on it.
+  // Watch the cinematic long enough and the train wanders off down the line;
+  // the map should not follow it and claim you are somewhere you are not.
+  const near = nearestStop(state.mode === 'ride' ? line.z : camera.position.z);
+  if (near !== stopIndex) { stopIndex = near; paintLine(); }
 }
 
 function goCine() {
@@ -366,6 +472,9 @@ addEventListener('keydown', (e) => {
   if (k === 'f') { state.mode === 'cine' ? goFree() : goCine(); mark(); return; }
   if (k === 'r') { rideNext(); return; }
   if (k === 'p') { togglePaint(); return; }
+  const from = destIndex === null ? stopIndex : destIndex;
+  if (k === 'n' || k === 'arrowright') { travelTo(from + 1); return; }
+  if (k === 'b' || k === 'arrowleft') { travelTo(from - 1); return; }
   state.keys.add(k);
   if ('wasdqe c'.includes(k) || k === ' ' || k === 'shift') { goFree(); mark(); }
 });
@@ -411,6 +520,33 @@ function setHourFromSlider() {
 }
 timeSlider.addEventListener('input', setHourFromSlider);
 
+// ---- the line map: twenty-seven stops, and which of them are laid ----
+const lineEl = document.getElementById('line');
+const stopsEl = lineEl.querySelector('.stops');
+const lineLblT = lineEl.querySelector('.lbl b');
+const lineLblF = lineEl.querySelector('.lbl i');
+const dots = LINE.map((s) => {
+  const d = document.createElement('button');
+  d.className = 'dot' + (s.built ? ' built' : '');
+  d.style.left = ((s.n - 1) / (LINE.length - 1) * 100) + '%';
+  d.title = s.built ? `${s.n}. ${s.title} — ${s.film}` : `${s.n}. ${s.title} — ${s.film} (up the line)`;
+  if (s.built) d.addEventListener('click', () => travelTo(REGIONS.indexOf(s.built)));
+  stopsEl.appendChild(d);
+  return d;
+});
+
+function paintLine() {
+  const here = REGIONS[stopIndex];
+  const to = destIndex === null ? null : REGIONS[destIndex];
+  dots.forEach((d, i) => {
+    d.classList.toggle('now', LINE[i].built === here);
+    d.classList.toggle('dest', !!to && to !== here && LINE[i].built === to);
+  });
+  const show = to && to !== here ? to : here;
+  lineLblT.textContent = (to && to !== here ? '→ ' : '') + show.title;
+  lineLblF.textContent = show.film + ' · ' + show.year;
+}
+
 const hintEl = document.getElementById('hint');
 const titleEl = document.getElementById('title');
 let hintTimer = null, hinted = false;
@@ -433,6 +569,7 @@ const trainHead = new THREE.Vector3();
 
 setHourFromSlider();
 setGrassFromSlider();
+paintLine();
 applyAtmosphere(0);
 
 function frame() {
@@ -446,16 +583,21 @@ function frame() {
   // ---- drop back into the cinematic after a while alone ----
   if (state.mode === 'free' && clock - state.lastInput > 16) goCine();
 
+  advanceLine(dt);
+
   if (state.mode === 'ride') {
-    // a seat by the window, or up on the roof
-    const z = window.__trainZ ?? 0;
+    // Dead centre of a carriage, not near its end — sit by the join and the
+    // wall runs out a metre to your left and the window stops being a window.
+    const z = line.z;
     const sway = Math.sin(clock * 2.7) * 0.014 + Math.sin(clock * 5.3) * 0.006;
     const bob  = Math.sin(clock * 3.9) * 0.020 + Math.sin(clock * 7.1) * 0.009;
-    if (state.seat === 'roof') camera.position.set(Math.sin(clock * 1.3) * 0.05, 6.55 + bob, z + 30);
-    else                        camera.position.set(0.16, 3.36 + bob, z + 26);
+    // half a mullion pitch off centre: sit level with one and it stands in the
+    // middle of everything you look at
+    if (state.seat === 'roof') camera.position.set(Math.sin(clock * 1.3) * 0.05, 6.55 + bob, z + CAR_PITCH);
+    else                        camera.position.set(0.0, 3.50 + bob, z + 1.70);
     camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, sway, 'YXZ'));
-    shared.uLamps.value[2].set(0, 4.5, z + 26, 9);
-    shared.uLampCols.value[2].setRGB(0.30, 0.21, 0.12);
+    shared.uLamps.value[2].set(-0.6, 4.5, z + 1.70, 5.5);
+    shared.uLampCols.value[2].setRGB(0.130, 0.088, 0.045);
   } else if (state.mode === 'free') {
     shared.uLamps.value[2].w = 0;
     const sp = (state.keys.has('shift') ? 46 : 15);
@@ -475,8 +617,10 @@ function frame() {
 
     state.pos.y = Math.max(state.pos.y, 0.62);
     state.pos.y = Math.min(state.pos.y, 320);
-    const flat = Math.hypot(state.pos.x, state.pos.z + 120);
-    if (flat > 1500) { state.pos.x *= 1500 / flat; state.pos.z = (state.pos.z + 120) * (1500 / flat) - 120; }
+    // The world is a line, not a disc. A circular leash round the origin let
+    // you walk the first region and quietly dragged you back everywhere else.
+    state.pos.x = THREE.MathUtils.clamp(state.pos.x, -1400, 1400);
+    state.pos.z = THREE.MathUtils.clamp(state.pos.z, LINE_END - 400, REGIONS[0].zNear + 400);
 
     camera.position.copy(state.pos);
     camera.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, 0, 'YXZ'));
@@ -511,19 +655,25 @@ function frame() {
   sky.uniforms.uSunTint.value.copy(shared.uSunTint.value);
   sky.uniforms.uCloudAmt.value = shared.uCloudAmt.value;
 
-  // ---- the train: always running, always somewhere on the line ----
-  const LOOP = 5500, SPEED = 34;
-  const z = 1000 - ((clock * SPEED) % LOOP);
+  // ---- the train, wherever the journey has it ----
+  const z = line.z;
   train.group.visible = true;
   train.group.position.set(0, 0, z);
   trainHead.set(0, 3.4, z - 9);
   water.uniforms.uGlowC.value.set(trainHead.x, 3.4, trainHead.z);
   water.uniforms.uGlowCr.value = 7.5;
-  shared.uLamps.value[1].set(trainHead.x, trainHead.y, trainHead.z, 48);
-  shared.uLampCols.value[1].setRGB(0.26, 0.20, 0.12);
+  // the headlamp lights the line ahead — reach any further and it floods
+  // the carriage the camera is sitting in, and the seat turns the colour of it
+  shared.uLamps.value[1].set(trainHead.x, trainHead.y, trainHead.z, 30);
+  shared.uLampCols.value[1].setRGB(0.22, 0.17, 0.10);
   window.__trainZ = z;
 
+  // the plain has no edge — the mirror travels with you
+  water.mesh.position.set(camera.position.x, 0, camera.position.z);
+  rain.update(camera.position, shared.uWet.value);
+
   ink.update(clock);
+  bus.update(clock);
   spirits.update(clock);
   lanterns.update(clock);
   steam.update(clock);
@@ -557,6 +707,17 @@ function applyDpr() {
 
 // jump the clock, for checking things that only happen sometimes
 window.__jump = (t) => { clock = t; };
+
+// drop straight onto a stop without the run down the line
+window.__stop = (i) => {
+  travelTo(i);
+  line.z = REGIONS[destIndex].station;
+  stopIndex = destIndex; destIndex = null;
+  line.target = null; line.warp = 0;
+  paintLine();
+  camera.fov = 52; camera.updateProjectionMatrix();
+  return REGIONS[stopIndex].title;
+};
 
 // ===========================================================================
 addEventListener('resize', () => {

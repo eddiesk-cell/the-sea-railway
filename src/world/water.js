@@ -60,6 +60,13 @@ export function createWater(sharedUniforms) {
         float nx = fbm((p + vec2(e,0.0)) * 0.42 + vec2(t * 0.055, -t * 0.038));
         float nz = fbm((p + vec2(0.0,e)) * 0.42 + vec2(t * 0.055, -t * 0.038));
         g += vec2(nx - n0, nz - n0) * (0.75 / e);
+        // rain: the surface stops being a mirror and starts being stippled
+        if (uWet > 0.004){
+          float e2 = 0.11;
+          vec2 q = p * 3.1 + vec2(0.0, t * 0.7);
+          float m0 = fbm(q), mx = fbm(q + vec2(e2, 0.0)), mz = fbm(q + vec2(0.0, e2));
+          g += vec2(mx - m0, mz - m0) * (0.55 / e2) * uWet * atten;
+        }
         g *= atten;
         return normalize(vec3(-g.x, 1.0, -g.y));
       }

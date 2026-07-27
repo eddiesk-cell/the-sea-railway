@@ -33,6 +33,9 @@ npm run build && cp dist/index.html "The Sea Railway.html"
 | Move | W A S D |
 | Rise / sink | space / C |
 | Glide faster | shift |
+| Ride the train | R |
+| Next stop up the line | N |
+| Back one stop | B |
 | Let go, back to the cinematic | F |
 | Show or hide the panel | H |
 | Painterly on/off | P |

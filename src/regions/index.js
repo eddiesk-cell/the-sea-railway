@@ -7,6 +7,10 @@ import { samplePalette, sunDirection } from '../world/sky.js';
 // painted or brushed. Between two regions everything cross-fades over a couple
 // of hundred metres, so the train carries you out of one world and into the
 // next without a seam anywhere.
+//
+// Every region also names a station — the point on the line where the thing
+// it was built for is directly out of the window. That is where the journey
+// controls take you, and it is why the world is no longer one bathhouse.
 // ---------------------------------------------------------------------------
 
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
@@ -16,24 +20,52 @@ export const BLEND = 280;
 export const REGIONS = [
   {
     id: 'sea',
+    stop: 1,
     title: 'The Sea Railway',
     film: 'Spirited Away',
     year: 2001,
     zNear: 900, zFar: -1150,
+    station: 0,
     hourDriven: true,                 // this one answers to the hour slider
-    ink: 0,
+    ink: 0, wet: 0,
     fogDensity: 0.00045,
     bloom: 1.0, sat: 1.0, vignette: 0.55,
     mist: 0.0, mistTop: 0,
   },
   {
+    id: 'bus',
+    stop: 8,
+    title: 'The Bus Stop',
+    film: 'My Neighbour Totoro',
+    year: 1988,
+    zNear: -1150, zFar: -3900,
+    station: -2460,
+    hourDriven: false,
+    ink: 0, wet: 1,
+    fogDensity: 0.00105,
+    bloom: 1.25, sat: 0.94, vignette: 0.70,
+    mist: 0.34, mistTop: 26,
+    // Night, and raining hard. Everything is blue except the one lamp, which
+    // is the whole point of the picture.
+    palette: {
+      zenith:  [0.017, 0.026, 0.055],
+      mid:     [0.030, 0.046, 0.090],
+      horizon: [0.062, 0.082, 0.130],
+      sun:     [0.150, 0.190, 0.290],
+      fog:     [0.052, 0.070, 0.115],
+      sunY: 0.16, cloud: 0.97, exposure: 1.30,
+    },
+  },
+  {
     id: 'ink',
+    stop: 15,
     title: 'The Ink Country',
     film: 'The Tale of the Princess Kaguya',
     year: 2013,
-    zNear: -1150, zFar: -4200,
+    zNear: -3900, zFar: -7000,
+    station: -5177,
     hourDriven: false,
-    ink: 1,
+    ink: 1, wet: 0,
     paper: '#f6f0e4',
     inkTone: '#12141c',
     fogDensity: 0.00072,
@@ -51,6 +83,45 @@ export const REGIONS = [
     },
   },
 ];
+
+// Where the line starts and where it turns back on itself.
+export const LINE_START = REGIONS[0].zNear;
+export const LINE_END = REGIONS[REGIONS.length - 1].zFar;
+
+// The whole route, including the stretches not laid yet — because a line you
+// can see the length of is a different thing from a line you can't.
+export const LINE = [
+  ['The Sea Railway', 'Spirited Away', 2001],
+  ['The Drowned Road', 'Ponyo', 2008],
+  ['The Marsh House', 'When Marnie Was There', 2014],
+  ['Poppy Hill', 'From Up on Poppy Hill', 2011],
+  ['Koriko', "Kiki's Delivery Service", 1989],
+  ['The Hidden Cove', 'Porco Rosso', 1992],
+  ['Ocean Waves', 'Ocean Waves', 1993],
+  ['The Bus Stop', 'My Neighbour Totoro', 1988],
+  ['The Hillside', 'Grave of the Fireflies', 1988],
+  ['Safflower Fields', 'Only Yesterday', 1991],
+  ['Tama Hills', 'Pom Poko', 1994],
+  ['The Rotary', 'Whisper of the Heart', 1995],
+  ['The Cat Bureau', 'The Cat Returns', 2002],
+  ['The Garden', 'Arrietty', 2010],
+  ['The Ink Country', 'The Tale of the Princess Kaguya', 2013],
+  ['The Cedar Forest', 'Princess Mononoke', 1997],
+  ['Iron Town', 'Princess Mononoke', 1997],
+  ['The Meadow', "Howl's Moving Castle", 2004],
+  ['Market Chipping', "Howl's Moving Castle", 2004],
+  ['Hort Town', 'Tales from Earthsea', 2006],
+  ['The Crooked House', 'Earwig and the Witch', 2020],
+  ['The Valley of the Wind', 'Nausicaä', 1984],
+  ['Slag Ravine', 'Castle in the Sky', 1986],
+  ['Laputa', 'Castle in the Sky', 1986],
+  ['The Meadow of 1920', 'The Wind Rises', 2013],
+  ['The Tower', 'The Boy and the Heron', 2023],
+  ['The Sketch', 'My Neighbors the Yamadas', 1999],
+].map(([title, film, year], i) => {
+  const built = REGIONS.find(r => r.stop === i + 1) || null;
+  return { n: i + 1, title, film, year, built };
+});
 
 // Which region owns this stretch of line, and how far into the next one we are.
 export function regionAt(z) {
@@ -110,6 +181,7 @@ export function atmosphereAt(z, hour) {
     exposure: THREE.MathUtils.lerp(pa.exposure, pb.exposure, t),
     sunDir: sunDirection(pa).lerp(sunDirection(pb), t).normalize(),
     ink: L('ink'),
+    wet: L('wet'),
     mist: L('mist'),
     mistTop: THREE.MathUtils.lerp(a.mistTop || 40, b.mistTop || 40, t),
     fogDensity: L('fogDensity'),

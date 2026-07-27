@@ -16,12 +16,19 @@ in each region are original silhouettes. The tribute is to the landscapes.
 | # | Region | Film | Year | State |
 |---|---|---|---|---|
 | 1 | **The Sea Railway** — flooded plain, the bathhouse, the torii | Spirited Away | 2001 | ✅ live |
+| 8 | **The Bus Stop** — rice paddies at night, hard rain, one lamp, the camphor | My Neighbour Totoro | 1988 | ✅ live |
 | 15 | **The Ink Country** — karst peaks in mist, a bamboo grove, a pavilion | The Tale of the Princess Kaguya | 2013 | ✅ live |
 
-The line now runs from the Sea Railway straight into the Ink Country. Ride it
-(**R**) and the world changes around you over about three hundred metres: the
-sky stops being sky and becomes paper, the colour drains out of every surface,
-the haze turns white instead of blue, and the seal appears in the corner.
+Ride it (**R**) and the world changes around you over about three hundred
+metres, with no seam anywhere: out of the sunset and into the rain, and then
+out of the rain and into paper, where the colour drains from every surface, the
+haze turns white instead of blue, and a vermilion seal appears in the corner.
+
+**Getting about.** The strip along the bottom is the whole line — twenty-seven
+stops, of which the filled ones are laid. **N** takes the train to the next one
+and **B** to the last; clicking a lit stop goes straight there. The train runs
+the line on its own if you leave it alone, and turns back to the beginning when
+it reaches the end of what is built.
 
 ## The line, in order of the ride
 
@@ -37,7 +44,7 @@ sky and back to the sea — rather than by release date.
 | 5 | Koriko | Kiki's Delivery Service | 1989 | red roofs stacked to a clock tower, the sea beyond the wall |
 | 6 | The Hidden Cove | Porco Rosso | 1992 | limestone cliffs, an Adriatic inlet, a seaplane on the water |
 | 7 | Ocean Waves | Ocean Waves | 1993 | a small seaside station, summer haze, a bicycle |
-| 8 | The Bus Stop | My Neighbour Totoro | 1988 | rice paddies at night, rain, one lamp, an enormous camphor tree |
+| 8 | **The Bus Stop** | My Neighbour Totoro | 1988 | rice paddies at night, rain, one lamp, an enormous camphor tree |
 | 9 | The Hillside | Grave of the Fireflies | 1988 | a pond at dark, fireflies over the water — quiet, and left quiet |
 | 10 | Safflower Fields | Only Yesterday | 1991 | terraced farmland, red safflower at first light |
 | 11 | Tama Hills | Pom Poko | 1994 | old woodland running into a cut earth construction site |
@@ -79,6 +86,26 @@ Each region is one file exporting a description, not bespoke code:
 Regions are built when the train comes within range and disposed when it leaves,
 so the cost is always three regions, never twenty-seven.
 
+## The Bus Stop
+
+The one everybody has seen: a country road at night, hard rain, and a single
+lamp with nothing else lit for a mile.
+
+The trick it turned out to need was not rain but *ground*. Rice paddies are
+flooded fields — so the water the whole world already floats on becomes the
+paddies for nothing, and all that has to be built is the earth walls between
+them and the raised lane running out to the stop. The rest is one lamp, a
+timetable nobody reads, somebody's umbrella left leaning against the post, and
+the camphor standing behind it with a straw rope round its waist.
+
+Two things it forced, both of which every later region gets for free:
+
+- **Weather is a region property.** Rain is six thousand strokes in a box that
+  travels with the camera, and it fades in and out across the border with
+  everything else. Any region can now ask to be rained on.
+- **The line became a line.** Until this point the world was reachable only by
+  waiting sixty seconds on a moving train, so it read as one bathhouse.
+
 ## The Ink Country
 
 Eddie's idea, and it lands on exactly the right film — Kaguya is the one Ghibli
@@ -107,7 +134,11 @@ It needs almost nothing new in the world and everything new in the finish:
    metres at the border, so there is no seam anywhere.
 3. ✅ **The Ink Country** — and it proved the point: the finish pass can be a
    different medium, not just a different palette.
-4. **Regions 8, 22, 18** — the bus stop, the valley of the wind, the meadow.
-5. **Regions 5, 24, 16** — Koriko, Laputa, the cedar forest.
-6. **Stops.** Stations, stepping off, a whistle that brings the train back.
-7. **The rest**, and the loop back to the beginning.
+4. ✅ **The Bus Stop** — and the line became navigable with it: a route map
+   along the bottom, stop-to-stop travel, and a free camera no longer leashed
+   to the first region. Rain is a region property now, so any later region can
+   ask for weather.
+5. **Regions 22, 18** — the valley of the wind, the meadow.
+6. **Regions 5, 24, 16** — Koriko, Laputa, the cedar forest.
+7. **Stops.** Platforms, stepping off, a whistle that brings the train back.
+8. **The rest**, and the loop back to the beginning.

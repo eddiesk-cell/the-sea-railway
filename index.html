@@ -62,6 +62,44 @@
   #seal .mark path { stroke:#efe5d2; stroke-width:6.5; fill:none; stroke-linecap:square; }
   #hint b { font-weight:600; color:#f0c98a; letter-spacing:.14em; }
 
+  /* ---- the line: every stop on the route, and which are laid ---- */
+  #line {
+    position:absolute; left:50%; bottom:clamp(46px,7vh,72px); transform:translateX(-50%);
+    width:min(74vw, 760px); pointer-events:none;
+    font-family:ui-sans-serif,system-ui,sans-serif;
+  }
+  #line .rail { position:relative; height:1px; background:linear-gradient(90deg,
+      rgba(255,225,180,0) 0%, rgba(255,225,180,.30) 8%,
+      rgba(255,225,180,.30) 92%, rgba(255,225,180,0) 100%); }
+  #line .stops { position:absolute; inset:0; }
+  #line .dot {
+    position:absolute; top:50%; width:5px; height:5px; margin:-2.5px 0 0 -2.5px;
+    padding:0; border:0; border-radius:99px; background:rgba(246,231,205,.26);
+    transition:background .35s ease, transform .35s ease, box-shadow .35s ease;
+  }
+  #line .dot.built {
+    width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+    background:rgba(240,201,138,.82); pointer-events:auto; cursor:pointer;
+  }
+  #line .dot.built:hover { transform:scale(1.5); }
+  #line .dot.dest {
+    width:9px; height:9px; margin:-4.5px 0 0 -4.5px; background:transparent;
+    box-shadow:inset 0 0 0 2px #ffe0ab, 0 0 12px 2px rgba(232,176,106,.35);
+  }
+  #line .dot.now {
+    width:11px; height:11px; margin:-5.5px 0 0 -5.5px; background:#ffe0ab;
+    box-shadow:0 0 0 3px rgba(232,176,106,.20), 0 0 16px 3px rgba(232,176,106,.45);
+  }
+  /* the dot travels; the words stay put, which is much calmer to read */
+  #line .lbl {
+    position:absolute; bottom:15px; left:50%; transform:translateX(-50%); white-space:nowrap;
+    text-align:center; text-shadow:0 1px 12px rgba(0,0,0,.9);
+  }
+  #line .lbl b { display:block; font-size:12px; font-weight:500; letter-spacing:.16em;
+                 text-transform:uppercase; color:#ffe0ab; opacity:.92; }
+  #line .lbl i { display:block; font-style:normal; font-size:10px; letter-spacing:.14em;
+                 opacity:.42; margin-top:3px; }
+
   /* ---- help panel ---- */
   #help {
     position:absolute; right:clamp(16px,2.4vw,32px); top:clamp(16px,2.4vh,32px);
@@ -125,6 +163,11 @@
   }
   @keyframes pulse { 0%,100%{opacity:.35; transform:scale(.85);} 50%{opacity:1; transform:scale(1.15);} }
 
+  @media (max-width: 860px) {
+    /* the title card and the line both want the bottom of a narrow screen */
+    #line { width:90vw; bottom:118px; }
+    #line .lbl b { font-size:11px; }
+  }
   @media (max-width: 720px) {
     #help { right:12px; top:12px; padding:11px 13px; min-width:0; }
     #help .row, #help .toggle, #help .slider label { font-size:11px; }
@@ -155,7 +198,14 @@
       </svg>
     </div>
 
-    <div id="hint"><b>drag</b> to look &nbsp;·&nbsp; <b>W A S D</b> to walk &nbsp;·&nbsp; <b>R</b> to ride the train &nbsp;·&nbsp; <b>H</b> for controls</div>
+    <div id="hint"><b>R</b> to ride &nbsp;·&nbsp; <b>N</b> for the next stop &nbsp;·&nbsp; <b>drag</b> to look &nbsp;·&nbsp; <b>W A S D</b> to walk</div>
+
+    <!-- The line. Twenty-seven stops, and you can see which of them are laid —
+         which is the difference between a world and a view of one thing. -->
+    <div id="line">
+      <div class="lbl"><b></b><i></i></div>
+      <div class="rail"><div class="stops"></div></div>
+    </div>
 
     <div id="help" class="hidden">
       <h2>Controls</h2>
@@ -164,6 +214,8 @@
       <div class="row"><span>Rise / sink</span><kbd>space / C</kbd></div>
       <div class="row"><span>Glide faster</span><kbd>shift</kbd></div>
       <div class="row"><span>Ride the train</span><kbd>R</kbd></div>
+      <div class="row"><span>Next stop up the line</span><kbd>N</kbd></div>
+      <div class="row"><span>Back one stop</span><kbd>B</kbd></div>
       <div class="row"><span>Let go (cinematic)</span><kbd>F</kbd></div>
       <div class="sep"></div>
       <div class="toggle on" id="t-paint"><span>Painterly</span><i class="sw"></i></div>

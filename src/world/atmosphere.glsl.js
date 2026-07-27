@@ -55,6 +55,7 @@ uniform vec3  uPaper;      // the colour of the unpainted ground
 uniform vec3  uInkTone;    // the colour of a full-loaded brush
 uniform float uMist;       // low-lying mist: how much of it
 uniform float uMistTop;    // and how high it lies
+uniform float uWet;        // rain: 0 dry .. 1 coming down hard
 
 // Mist eats the bottom of things. In a shui-mo landscape it is the whole
 // reason a mountain reads as far away rather than as tall.

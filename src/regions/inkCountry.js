@@ -72,12 +72,14 @@ export function buildInkCountry(shared) {
   });
   const caneGeos = [bambooCane(3), bambooCane(11), bambooCane(29)];
   const clumps = [[], [], []];
-  const CANES = 12000;
+  const CANES = 9000;
   for (let i = 0; i < CANES; i++) {
     const side = rnd() > 0.5 ? 1 : -1;
     // a grove has holes in it — the eye needs somewhere to look through
     const t = Math.pow(rnd(), 0.7);
-    const x = side * (8.5 + t * 44);
+    // stand the grove back from the line: closer than this and the window
+    // is a wall of canes with the whole country hidden behind it
+    const x = side * (17.0 + t * 46);
     const z = -1400 - rnd() * 2500;
     if (Math.sin(z * 0.011) * 0.5 + 0.5 < rnd() * 0.55) continue;
     const hgt = 10 + rnd() * 12;
@@ -125,7 +127,8 @@ export function buildInkCountry(shared) {
   // ---- a pavilion on a rock, because a landscape needs one made thing ----
   {
     const pav = new THREE.Group();
-    pav.position.set(-74, 0, -2180);
+    // stood in one of the grove's own gaps, so the line has something to see
+    pav.position.set(-74, 0, -2427);
     pav.rotation.y = 0.5;
 
     const rock = new THREE.Mesh(karstPeak(15, 22, 777, { rings: 14, sectors: 12 }), rockNear);

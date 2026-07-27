@@ -208,27 +208,50 @@ export function createTrain(shared) {
     // you look through is built as its own inward panels with a gap left for
     // the glass. Only this one wall: anything else just clutters the frame.
     const inner = makePaintMaterial(shared, {
-      color: '#6a5140', shadowTint: '#241a1e', rim: 0.5, bands: 2, grain: 0.24, grainScale: 2.0,
+      color: '#2c2119', shadowTint: '#0a0910', rim: 0.45, bands: 2, grain: 0.24, grainScale: 2.0,
     });
     const seatMat = makePaintMaterial(shared, {
-      color: '#3e5a48', shadowTint: '#162224', rim: 0.5, bands: 2, grain: 0.2, grainScale: 2.2,
+      color: '#26382e', shadowTint: '#0c1216', rim: 0.5, bands: 2, grain: 0.2, grainScale: 2.2,
     });
     const inX = -(CAR_W / 2 - 0.07);
-    const WTOP = 4.16, WBOT = 2.86;
-    const header = new THREE.Mesh(box(0.12, 4.70 - WTOP, CAR_LEN - 0.2), inner);
-    header.position.set(inX, (4.70 + WTOP) / 2, 0);
+    const WTOP = 4.16, WBOT = 2.86, FLOOR = 1.46;
+    const header = new THREE.Mesh(box(0.12, 4.68 - WTOP, CAR_LEN - 0.2), inner);
+    header.position.set(inX, (4.68 + WTOP) / 2, 0);
     car.add(header);
-    const sill = new THREE.Mesh(box(0.20, WBOT - 2.36, CAR_LEN - 0.2), inner);
-    sill.position.set(inX, (WBOT + 2.36) / 2, 0);
+    // the sill runs all the way to the floor: a seated eye sees a good deal
+    // below the glass, and if it stops short you are looking at open sky
+    const sill = new THREE.Mesh(box(0.20, WBOT - FLOOR, CAR_LEN - 0.2), inner);
+    sill.position.set(inX, (WBOT + FLOOR) / 2, 0);
     car.add(sill);
     for (let m = -2; m <= 2; m++) {
       const mull = new THREE.Mesh(box(0.12, WTOP - WBOT, 0.26), inner);
       mull.position.set(inX, (WTOP + WBOT) / 2, m * (CAR_LEN / 5));
       car.add(mull);
     }
+    // and the ends, so the carriage is a room rather than a strip of wall
+    for (const ez of [-1, 1]) {
+      const end = new THREE.Mesh(box(2.90, 4.68 - FLOOR, 0.14), inner);
+      end.position.set(inX + 1.45, (4.68 + FLOOR) / 2, ez * (CAR_LEN / 2 - 0.1));
+      car.add(end);
+    }
+    const floorPanel = new THREE.Mesh(box(2.90, 0.12, CAR_LEN - 0.2), inner);
+    floorPanel.position.set(inX + 1.45, FLOOR, 0);
+    car.add(floorPanel);
+    const ceiling = new THREE.Mesh(box(2.90, 0.12, CAR_LEN - 0.2), inner);
+    ceiling.position.set(inX + 1.45, 4.68, 0);
+    car.add(ceiling);
+
     const bench = new THREE.Mesh(box(1.0, 0.20, CAR_LEN - 1.6), seatMat);
     bench.position.set(inX + 0.56, 2.30, 0);
     car.add(bench);
+    const backRest = new THREE.Mesh(box(0.14, 0.62, CAR_LEN - 1.6), seatMat);
+    backRest.position.set(inX + 0.13, 2.68, 0);
+    car.add(backRest);
+    for (const bz of [-CAR_LEN * 0.28, 0, CAR_LEN * 0.28]) {
+      const leg = new THREE.Mesh(box(0.9, 0.72, 0.16), inner);
+      leg.position.set(inX + 0.60, 1.88, bz);
+      car.add(leg);
+    }
 
     for (const wz of [-CAR_LEN * 0.32, CAR_LEN * 0.32]) {
       for (const wx of [-RAIL_HALF, RAIL_HALF]) {
