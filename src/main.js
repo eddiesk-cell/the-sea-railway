@@ -6,6 +6,8 @@ import { createRailway, createTrain } from './world/railway.js';
 import { createSpirits, createLanterns, createSteam, createDragon, createReeds } from './world/spirits.js';
 import { makePaintMaterial } from './world/paintMaterial.js';
 import { hill, box, curvedRoof, mulberry, fillInstances } from './world/geo.js';
+import { createGrass, MAX_BLADES } from './world/grass.js';
+import { createForest } from './world/trees.js';
 import { createPost } from './post/painterly.js';
 
 // ===========================================================================
@@ -78,6 +80,10 @@ scene.add(dragon.mesh);
 const reeds = createReeds(shared);
 scene.add(reeds.mesh);
 
+// --- the field: millions of blades, one draw call, no stored positions ---
+const grass = createGrass(shared, { count: 1_600_000 });
+scene.add(grass.mesh);
+
 // --- far country: headlands stacked into the haze ---
 {
   const far = makePaintMaterial(shared, { color: '#1b2628', shadowTint: '#080f18', rim: 0.8, bands: 2, grain: 0.1 });
@@ -105,33 +111,10 @@ scene.add(reeds.mesh);
     scene.add(m);
   });
 
-  // trees, so the headlands read as land and not as dunes
-  const treeMat = makePaintMaterial(shared, {
-    color: '#16211d', shadowTint: '#070c12', rim: 0.28, bands: 2, grain: 0.22, grainScale: 0.6,
-  });
-  // unit cone: one unit tall, so the instance scale IS the tree's height
-  const treeGeo = new THREE.ConeGeometry(0.30, 1.0, 6, 2);
-  treeGeo.translate(0, 0.5, 0);
-  const rnd = mulberry(4242);
-  const trees = [];
-  shoulders.forEach(({ at, r, h }) => {
-    const n = Math.round(r * 1.5);
-    for (let i = 0; i < n; i++) {
-      const a = rnd() * Math.PI * 2;
-      const d = Math.sqrt(rnd()) * r * 0.94;
-      const y = at.y + h * Math.sqrt(Math.max(0, 1 - (d / r) ** 2)) * 0.93;
-      const s = 9 + rnd() * 11;
-      trees.push({
-        pos: [at.x + Math.cos(a) * d, y - 1.2, at.z + Math.sin(a) * d],
-        rot: [(rnd() - 0.5) * 0.10, rnd() * 3.14, (rnd() - 0.5) * 0.10],
-        scale: [s * (0.75 + rnd() * 0.35), s, s * (0.75 + rnd() * 0.35)],
-      });
-    }
-  });
-  const forest = new THREE.InstancedMesh(treeGeo, treeMat, trees.length);
-  fillInstances(forest, trees);
-  forest.frustumCulled = false;
-  scene.add(forest);
+  // a wood: firs, broadleaves, wind-shaped pines, blossom and bamboo
+  const forest = createForest(shared, shoulders.map(({ at, r, h }) => ({ at, r, h })));
+  scene.add(forest.group);
+  window.__trees = forest.count;
 }
 
 // --- a torii standing in the shallows, close enough to touch ---
@@ -177,6 +160,7 @@ function applyHour(h) {
   fogV.copy(p.fog);
   shared.uFogColor.value.copy(fogV);
   water.uniforms.uFogColor.value.copy(fogV);
+  grass.uniforms.uFogColor.value.copy(fogV);
   post.kuwahara.uniforms.uExposure.value = p.exposure;
 
   // the world's few real lamps get brighter as the light goes
@@ -324,6 +308,20 @@ function togglePaint() {
 }
 paintToggle.addEventListener('click', togglePaint);
 
+const grassSlider = document.getElementById('s-grass');
+const grassLabel = document.getElementById('v-grass');
+function setGrassFromSlider() {
+  // a gentle curve, so the low end is still adjustable
+  const t = grassSlider.value / 100;
+  const n = Math.round(MAX_BLADES * Math.pow(t, 1.35));
+  grass.setCount(n);
+  grassLabel.textContent = n >= 1e6 ? (n / 1e6).toFixed(2) + ' M'
+                         : n >= 1e3 ? Math.round(n / 1e3) + ' K' : String(n);
+}
+grassSlider.addEventListener('input', setGrassFromSlider);
+
+const fpsLabel = document.getElementById('v-fps');
+
 const timeSlider = document.getElementById('s-time');
 const timeLabel = document.getElementById('v-time');
 const NAMES = [[0.13, 'night'], [0.27, 'late blue'], [0.39, 'blue hour'], [0.72, 'dusk'], [0.90, 'evening'], [1.01, 'afternoon']];
@@ -356,6 +354,7 @@ const trainHead = new THREE.Vector3();
 
 applyHour(0.62);
 setHourFromSlider();
+setGrassFromSlider();
 
 function frame() {
   requestAnimationFrame(frame);
@@ -408,6 +407,7 @@ function frame() {
 
   shared.uCamPos.value.copy(camera.position);
   water.uniforms.uCamPos.value.copy(camera.position);
+  grass.uniforms.uCamXZ.value.set(camera.position.x, camera.position.z);
   sky.mesh.position.copy(camera.position);
   sky.uniforms.uTime.value = clock;
   sky.uniforms.uSunDir.value.copy(shared.uSunDir.value);
@@ -446,9 +446,10 @@ function frame() {
 
   // ---- rolling frame rate, and back off resolution if the brush is too dear ----
   fpsN++;
-  if (clock - fpsT > 1) {
+  if (clock - fpsT > 0.4) {
     const fps = Math.round(fpsN / (clock - fpsT));
     window.__fps = fps;
+    fpsLabel.textContent = fps + ' fps';
     fpsN = 0; fpsT = clock;
     if (clock > 3) {
       if (fps < 40 && dprStep > 0) { dprStep--; applyDpr(); }
@@ -478,6 +479,28 @@ addEventListener('resize', () => {
 });
 
 window.__cam = camera;
+// Real GPU time for one frame, via a timer query — a wall-clock loop around
+// render() only measures how fast the commands were *queued*, which on this
+// driver comes back as a number too good to be true.
+window.__bench = (n = 30) => new Promise((resolve) => {
+  const gl = renderer.getContext();
+  const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  if (!ext) { resolve({ error: 'no timer query extension' }); return; }
+  const q = gl.createQuery();
+  gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+  for (let i = 0; i < n; i++) post.composer.render(1 / 60);
+  gl.endQuery(ext.TIME_ELAPSED_EXT);
+  const poll = () => {
+    if (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) { setTimeout(poll, 12); return; }
+    const ms = gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6 / n;
+    gl.deleteQuery(q);
+    resolve({ blades: grass.count, trees: window.__trees, gpuMsPerFrame: +ms.toFixed(2),
+              fps: Math.round(1000 / ms), calls: renderer.info.render.calls,
+              triangles: renderer.info.render.triangles,
+              px: [renderer.domElement.width, renderer.domElement.height] });
+  };
+  poll();
+});
 
 // a hook for parking the camera on an exact frame while tuning the look
 window.__view = (px, py, pz, lx, ly, lz) => {

@@ -80,7 +80,7 @@
   }
   #help .toggle.on .sw { background:rgba(232,176,106,.55); }
   #help .toggle.on .sw::after { transform:translateX(15px); background:#ffe9c2; }
-  #help .slider { padding:6px 0 2px; }
+  #help .slider { padding:5px 0 1px; }
   #help .slider label { display:flex; justify-content:space-between; font-size:12px; opacity:.86; margin-bottom:7px; }
   #help .slider label span { opacity:.6; font-variant-numeric:tabular-nums; }
   #help input[type=range] {
@@ -138,7 +138,12 @@
         <label>Hour <span id="v-time">dusk</span></label>
         <input type="range" id="s-time" min="0" max="100" value="44" />
       </div>
+      <div class="slider">
+        <label>Grass blades <span id="v-grass">1.6 M</span></label>
+        <input type="range" id="s-grass" min="0" max="100" value="68" />
+      </div>
       <div class="sep"></div>
+      <div class="row" style="opacity:.55"><span>Frame rate</span><kbd id="v-fps">—</kbd></div>
       <div class="row" style="opacity:.45"><span>Hide this panel</span><kbd>H</kbd></div>
     </div>
   </div>

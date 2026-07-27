@@ -52,10 +52,17 @@ export function makePaintMaterial(shared, opts = {}) {
     uniforms, side, transparent, depthWrite,
     vertexShader: /* glsl */`
       uniform float uTime;
+      // three declares the instanceColor attribute itself when the define is on
       varying vec3 vWorld;
       varying vec3 vNormalW;
       varying vec3 vLocal;
+      varying vec3 vInst;
       void main(){
+        #ifdef USE_INSTANCING_COLOR
+          vInst = instanceColor;
+        #else
+          vInst = vec3(1.0);
+        #endif
         vLocal = position;
         #ifdef USE_INSTANCING
           mat4 mm = modelMatrix * instanceMatrix;
@@ -88,10 +95,12 @@ export function makePaintMaterial(shared, opts = {}) {
       varying vec3 vWorld;
       varying vec3 vNormalW;
       varying vec3 vLocal;
+      varying vec3 vInst;
       ${NOISE}
       ${SKY}
 
       void main(){
+        vec3 uBaseI = uBase * vInst;
         vec3 N = normalize(vNormalW);
         ${flatShading ? 'N = normalize(cross(dFdx(vWorld), dFdy(vWorld)));' : ''}
         vec3 toEye = uCamPos - vWorld;
@@ -108,7 +117,7 @@ export function makePaintMaterial(shared, opts = {}) {
         q += smoothstep(0.42, 0.58, fr) / b;      // soften the terraces a little
 
         vec3 sunCol = uSunTint * 0.85 + uHorizon * 0.16;
-        vec3 col = mix(uShade, uBase, q);
+        vec3 col = mix(uShade * vInst, uBaseI, q);
         col *= mix(vec3(1.0), sunCol, q * 0.50);
 
         // ---- sky bounce: cool from above, warm haze from below ----
@@ -116,7 +125,7 @@ export function makePaintMaterial(shared, opts = {}) {
         // turns the same grey and the reds stop being red
         float up = N.y * 0.5 + 0.5;
         vec3 ambient = mix(uHorizon * 0.55, uZenith * 1.5 + uMidSky * 0.6, up);
-        col += uBase * ambient * 0.78 + ambient * 0.022;
+        col += uBaseI * ambient * 0.78 + ambient * 0.022;
 
         // ---- rim off the low sun ----
         float rimT = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.1);
