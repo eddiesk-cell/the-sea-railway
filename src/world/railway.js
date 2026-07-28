@@ -379,8 +379,14 @@ export function createTrain(shared) {
       const belt = new THREE.Mesh(box(0.09, 0.16, CAR_LEN - 0.5), trim);
       belt.position.set(sx * (CAR_W / 2 + 0.01), FLOOR_Y + 1.42, 0);
       car.add(belt);
+      // The cantrail, ABOVE the glass. It sat at 2.86 for one build, which is
+      // inside the window opening — so from the seat there was a strip of
+      // timber lying across the view. Eddie: "why does it have the thing to
+      // block the view from the train? I think it's quite bad." He is right,
+      // and the rule it broke is simple: nothing on the outside of this car
+      // may occupy the band the passenger looks through.
       const upper = new THREE.Mesh(box(0.07, 0.11, CAR_LEN - 0.5), trim);
-      upper.position.set(sx * (CAR_W / 2 - 0.02), FLOOR_Y + 2.86, 0);
+      upper.position.set(sx * (CAR_W / 2 - 0.02), FLOOR_Y + 3.52, 0);
       car.add(upper);
       // and the footboard along the bottom, which is where the eye finds the
       // line of the car
@@ -391,14 +397,19 @@ export function createTrain(shared) {
 
     // ---- windows, with pillars between them ------------------------------
     for (const sx of [-1, 1]) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN * 0.80, 1.58), winMat);
-      win.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.10, 0);
+      // The outside of the window lines up with the opening on the inside —
+      // they used to disagree by 40 cm, which is a hole above the glass.
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN * 0.80, 1.62), winMat);
+      win.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.48, 0);
       win.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
       car.add(win);
-      const span = CAR_LEN * 0.80;
-      for (let m = 0; m <= PANES; m++) {
-        const pil = new THREE.Mesh(box(0.10, 1.72, 0.20), shell);
-        pil.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.10, -span / 2 + (m / PANES) * span);
+      // Pillars stand exactly where the mullions inside stand, so from the
+      // seat each one hides behind the frame that is already there. Dividing
+      // the flank into six put a post 56 cm from the passenger's eye — which
+      // is the post Eddie was looking at.
+      for (const pz of [-CAR_LEN / 3, 0, CAR_LEN / 3]) {
+        const pil = new THREE.Mesh(box(0.10, 1.76, 0.22), shell);
+        pil.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.48, pz);
         car.add(pil);
       }
       // two doors, recessed, with their own small light
@@ -406,12 +417,12 @@ export function createTrain(shared) {
         const rec = new THREE.Mesh(box(0.10, 2.45, 1.30), dark);
         rec.position.set(sx * (CAR_W / 2 + 0.01), FLOOR_Y + 1.24, dz);
         car.add(rec);
-        const dwin = new THREE.Mesh(new THREE.PlaneGeometry(0.70, 0.66), winMat);
-        dwin.position.set(sx * (CAR_W / 2 + 0.07), FLOOR_Y + 2.06, dz);
+        const dwin = new THREE.Mesh(new THREE.PlaneGeometry(0.70, 0.60), winMat);
+        dwin.position.set(sx * (CAR_W / 2 + 0.07), FLOOR_Y + 1.62, dz);
         dwin.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
         car.add(dwin);
-        const rail2 = new THREE.Mesh(box(0.06, 1.5, 0.06), brass);
-        rail2.position.set(sx * (CAR_W / 2 + 0.10), FLOOR_Y + 1.30, dz - 0.72);
+        const rail2 = new THREE.Mesh(box(0.06, 1.2, 0.06), brass);
+        rail2.position.set(sx * (CAR_W / 2 + 0.10), FLOOR_Y + 1.10, dz - 0.72);
         car.add(rail2);
       }
     }

@@ -176,6 +176,23 @@ function mergeSimple(list) {
 
 // A stand of bamboo: one cane, its nodes, and a scruff of blades near the top.
 // Built to a height of 1 so the instance scale is the height in metres.
+// One long leaf, anchored at its stalk and pointing +X: tapered to a point,
+// curling away as it goes. Bigger than life on purpose — a bamboo leaf is a
+// hand's length, and a hand's length on a thirty-metre cane seen from a train
+// is a speck. Mass is what makes a grove shade the ground.
+function inkBlade(len) {
+  const g = new THREE.PlaneGeometry(len, 0.0092, 3, 1);
+  const p = g.attributes.position;
+  for (let v = 0; v < p.count; v++) {
+    const ff = (p.getX(v) / len) + 0.5;
+    p.setY(v, p.getY(v) * (1 - ff * 0.88));
+    p.setZ(v, -ff * ff * len * 0.42);
+  }
+  g.computeVertexNormals();
+  g.translate(len / 2, 0, 0);
+  return g;
+}
+
 export function bambooCane(seed = 1) {
   const rnd = mulberry(seed);
   const parts = [];
@@ -193,39 +210,48 @@ export function bambooCane(seed = 1) {
     node.translate(0, y1, 0);
     parts.push(node);
   }
-  // Leaves grow in fans off a node, not scattered up the cane — which is the
-  // difference between bamboo and a dead stick. And bamboo is bare for two
-  // thirds of its height, then all leaf at once.
-  const fans = 11;
+
+  // Eddie, twice, and he was right both times: "there are still no branches at
+  // the top, and there are no spreads with bamboo leaves covering for shade."
+  //
+  // Leaves used to hang straight off the cane, twenty centimetres from its
+  // axis, which is a bottle brush — a pole with bristles. A bamboo carries its
+  // leaves on BRANCHES two or three metres long, spiralling off the top nodes,
+  // and it is those branches that hold the foliage out far enough to close
+  // over and make a grove dark underneath. The branch is the whole thing.
+  const fans = 8;
   for (let f = 0; f < fans; f++) {
-    const fy = 0.60 + (f / fans) * 0.39 + rnd() * 0.02;
-    const fa = rnd() * Math.PI * 2;
-    const blades = 6 + ((rnd() * 4) | 0);
-    for (let i = 0; i < blades; i++) {
-      const a = fa + (i - blades / 2) * 0.38 + (rnd() - 0.5) * 0.2;
-      const y = fy + (rnd() - 0.5) * 0.03;
-      // a leaf is a hand's length whatever the cane is
-      const len = 0.013 + rnd() * 0.011;
-      const g = new THREE.PlaneGeometry(len, 0.0028, 3, 1);
-      const p = g.attributes.position;
-      for (let v = 0; v < p.count; v++) {
-        const ff = (p.getX(v) / len) + 0.5;
-        p.setY(v, p.getY(v) * (1 - ff * 0.85));
-        p.setZ(v, -ff * ff * len * 0.55);
+    const fy = 0.56 + (f / fans) * 0.42 + rnd() * 0.02;
+    const az = f * 2.39996 + rnd() * 0.6;
+    const up = 0.52 - (fy - 0.56) * 0.85 + rnd() * 0.22;
+    const blen = 0.038 + rnd() * 0.042;
+
+    // built lying along +X, then raised, spun, and lifted to its node
+    const xf = (g) => { g.rotateZ(up); g.rotateY(-az); g.translate(0, fy, 0); return g; };
+
+    const st = new THREE.CylinderGeometry(0.0008, 0.0017, blen, 4);
+    st.rotateZ(-Math.PI / 2); st.translate(blen * 0.5, 0, 0);
+    parts.push(xf(st));
+
+    for (let k = 0; k < 3; k++) {
+      const at = blen * (0.50 + k * 0.26);
+      const droop = -0.24 - rnd() * 0.44;
+      for (let j = 0; j < 3; j++) {
+        const bl = inkBlade(0.030 + rnd() * 0.026);
+        bl.rotateZ(droop);
+        bl.rotateX((j - 1) * (0.58 + rnd() * 0.34));
+        bl.translate(at, 0, 0);
+        parts.push(xf(bl));
       }
-      g.computeVertexNormals();
-      g.rotateZ(-0.22 - rnd() * 0.3);
-      g.rotateY(a);
-      g.translate(Math.cos(a) * len * 0.5, y, Math.sin(a) * len * 0.5);
-      parts.push(g);
     }
   }
+
   const merged = mergeAll(parts);
   // the top of a cane bows over under its own leaf — without this they are poles
   const mp = merged.attributes.position;
   for (let i = 0; i < mp.count; i++) {
     const t = Math.max(0, mp.getY(i) - 0.34) / 0.66;
-    mp.setX(i, mp.getX(i) + t * t * 0.085);
+    mp.setX(i, mp.getX(i) + t * t * 0.115);
   }
   merged.computeVertexNormals();
   return merged;
