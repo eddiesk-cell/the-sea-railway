@@ -343,6 +343,36 @@ function makePath(p) {
       },
     };
   }
+  // A route: a walk with somewhere to be. Points are [x, z, y] and the crowd
+  // follows them end to end and then starts again at the beginning, which is
+  // what a procession is — off the boat, along the quay, up the street, over
+  // the bridge and in at the door. A ring is a crowd milling; a street is a
+  // crowd pacing; this is a crowd ARRIVING, and it is the only one of the
+  // three that tells a story.
+  if (p.type === 'route') {
+    const pts = p.points;
+    const seg = [];
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      seg.push({ a: pts[i], b: pts[i + 1], d, at: total });
+      total += d;
+    }
+    return {
+      len: total,
+      at(s, out) {
+        let t = s % total; if (t < 0) t += total;
+        let k = 0;
+        while (k < seg.length - 1 && t > seg[k].at + seg[k].d) k++;
+        const g = seg[k], u = g.d > 0 ? (t - g.at) / g.d : 0;
+        out.x = g.a[0] + (g.b[0] - g.a[0]) * u;
+        out.z = g.a[1] + (g.b[1] - g.a[1]) * u;
+        out.y = (g.a[2] ?? 0) + ((g.b[2] ?? 0) - (g.a[2] ?? 0)) * u;
+        out.h = Math.atan2(g.b[0] - g.a[0], g.b[1] - g.a[1]);
+        return out;
+      },
+    };
+  }
   // a street: there and back, with a turn at each end
   const dx = p.to[0] - p.from[0], dz = p.to[1] - p.from[1];
   const L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
@@ -367,9 +397,16 @@ function makePath(p) {
 
 // A crowd is read as a spread of values, not of hues: mostly muted earths and
 // indigos with two or three that carry, so the eye picks somebody to follow.
+// smoothstep between two edges, either way round
+function smooth(x, a, b) {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
 function population(M, spec, seed) {
   const rnd = mulberry(seed);
   const path = makePath(spec.path);
+  const fade = spec.fade === true;
   const n = spec.n ?? 12;
   const group = new THREE.Group();
   const agents = [];
@@ -468,7 +505,13 @@ function population(M, spec, seed) {
             ? Math.sin(t * 0.7 + a.ph) * 0.075 * a.scale
             : Math.abs(Math.cos(a.s / (0.62 * a.scale) + a.ph)) * 0.028 * a.scale * a.moving;
           pv.set(at.x + ox, at.y + bob, at.z + oz);
-          sv.setScalar(a.scale);
+          // A route has two ends, and the walk between them is one way. Rather
+          // than snap everybody back to the start when they reach the door,
+          // they arrive out of nothing at the gangway and are gone by the time
+          // they are through it — which is what a spirit does anyway.
+          sv.setScalar(a.scale * (fade
+            ? Math.min(smooth(a.s / path.len, 0.0, 0.05), smooth(a.s / path.len, 1.0, 0.92))
+            : 1));
 
           e.set(0, at.h, 0); q.setFromEuler(e);
           m.compose(pv, q, sv); body.setMatrixAt(k, m);

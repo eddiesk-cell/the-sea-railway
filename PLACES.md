@@ -334,3 +334,32 @@ corridor** (eleven of sixteen were written too close, one reaching to within ten
 metres of the rails), and **anything that walks or drives has its route
 ray-tested against the actual ground** — a route over open water simply does not
 produce a crowd. `__blockers()` reports anything tall parked against the glass.
+
+
+## The arrival — Spirited Away
+
+Eddie: *"town square, the bridge before the bathhouse, the lanterns on the
+streets, the restaurants with plenty of food, and all the spirits walking off
+the boat, spirits walking into the bathhouse through the bridge."*
+
+That is not a list of buildings, it is a SEQUENCE — so it is built as one.
+`src/world/arrival.js`, on the water between the line and the bathhouse, where
+the ride already looks:
+
+**boat → quay → street → square → bridge → door.**
+
+The town climbs to the bathhouse in three terraces on piles, because the
+bathhouse's own floor is thirty metres above the water and no bridge makes up
+that difference — which is exactly why that town is drawn as stepped terraces
+in the film. Nine shopfronts, every one open, every one lit, every counter
+heaped, and nobody behind any of them. A paper lantern at each door and lamp
+standards down the lane. A red gate at the head of the street, and the bridge
+out of the square onto the bathhouse's ground with lanterns down both parapets.
+The ferry lies alongside the quay with its own lamps lit and a gangway up.
+
+The procession is one `route` — a new path type in `life.js`: a polyline a
+crowd walks end to end rather than round and round. Fifty-four guests are on
+it, and they fade in stepping off the boat and are gone by the time they are
+through the door, so nobody ever snaps back to the start. A ring is a crowd
+milling and a street is a crowd pacing; a route is a crowd ARRIVING, and it is
+the only one of the three that tells a story.

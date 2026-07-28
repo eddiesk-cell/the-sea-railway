@@ -41,6 +41,7 @@ import { hill, box, curvedRoof, mulberry, fillInstances } from './world/geo.js';
 import { createGrass, MAX_BLADES } from './world/grass.js';
 import { createForest } from './world/trees.js';
 import { nearShore, SHORE_CROWDS } from './world/nearshore.js';
+import { createArrival, ARRIVAL_CROWDS } from './world/arrival.js';
 import { createPost } from './post/painterly.js';
 
 // ===========================================================================
@@ -307,6 +308,10 @@ function routeIsDry(spec, shiftZ, targets) {
   if (spec.kind !== 'cars' && spec.kind !== 'walkers') return true;
   const p = spec.path;
   if (!p) return true;
+  // A route is authored deliberately, point by point, onto ground somebody
+  // already chose — a procession crossing a bridge is meant to be over water
+  // for part of it. Only the two paths that were laid down blind get tested.
+  if (p.type === 'route') return true;
   const pts = [];
   for (let k = 0; k < 9; k++) {
     if (p.type === 'street') {
@@ -338,6 +343,16 @@ function ensureLifeNear(z, reach = 3600) {
       life.add(spec, r.shift, r.stop * 97 + i * 13);
     });
   });
+}
+
+// --- the arrival: the town, the bridge and the guests coming ashore ---
+// Built at once rather than lazily. It stands between the line and the
+// bathhouse, which means it is in the very first frame of the world.
+{
+  const arrival = createArrival(shared);
+  scene.add(arrival);
+  harvestLand(arrival);
+  ARRIVAL_CROWDS.forEach((spec, i) => life.add(spec, 0, 7700 + i * 31));
 }
 
 // --- weather, and the sound of it ---
