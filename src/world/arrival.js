@@ -71,26 +71,45 @@ export function createArrival(shared) {
   };
 
   // ---- a flight of steps from one terrace to the next ---------------------
+  //
+  // The street climbs INLAND, and inland is decreasing x. The first version had
+  // the low end at the inland side and the high end at the quay, so every
+  // flight ran backwards under a crowd walking correctly up it — Eddie: "check
+  // your stairs, it's wired wrong." Each tread also drops to the terrace below
+  // it now, because a staircase made of floating slabs is a ladder.
   const flight = (x, yLo, yHi, w) => {
     const n = Math.round((yHi - yLo) / 0.42);
+    const run = 14;
     const items = [];
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i <= n; i++) {
       const t = i / n;
-      items.push({ pos: [x - 6 + t * 12, yLo + (yHi - yLo) * t, LANE_Z], scale: [12 / n + 0.3, 0.5, w] });
+      const y = yLo + (yHi - yLo) * t;
+      items.push({
+        pos: [x + run / 2 - t * run, (y + yLo - 1.2) / 2, LANE_Z],
+        scale: [run / n + 0.35, y - yLo + 1.2, w],
+      });
     }
     put(g, items, box(1, 1, 1), M.stone);
     for (const sz of [-1, 1]) {
-      const rail = new THREE.Mesh(box(13.5, 0.5, 0.4), M.red);
-      rail.position.set(x, (yLo + yHi) / 2 + 1.1, LANE_Z + sz * (w / 2 - 0.3));
-      rail.rotation.z = Math.atan2(yHi - yLo, 12); g.add(rail);
+      const rail = new THREE.Mesh(box(run + 1.6, 0.42, 0.34), M.red);
+      rail.position.set(x, (yLo + yHi) / 2 + 1.15, LANE_Z + sz * (w / 2 - 0.3));
+      rail.rotation.z = -Math.atan2(yHi - yLo, run); g.add(rail);
+      // and newel posts, so it reads as a stair and not a ramp
+      for (const e of [-1, 1]) {
+        const post = new THREE.Mesh(box(0.42, 2.2, 0.42), M.red);
+        post.position.set(x + e * (run / 2), (e > 0 ? yLo : yHi) + 1.1, LANE_Z + sz * (w / 2 - 0.3));
+        g.add(post);
+      }
     }
   };
 
   terrace(-72, -114, L0, 34);
   terrace(-114, -148, L1, 26);
   terrace(-148, -180, L2, 22);
-  flight(-114, L0, L1, 13);
-  flight(-148, L1, L2, 13);
+  // A flight stands ON the terrace below and lands exactly at the edge of the
+  // one above — centre it on the join and half of it is inside the upper slab.
+  flight(-107, L0, L1, 13);
+  flight(-141, L1, L2, 13);
 
   // =========================================================================
   // The street of restaurants
@@ -188,6 +207,68 @@ export function createArrival(shared) {
   }
 
   // =========================================================================
+  // The main entrance
+  //
+  // The bathhouse's lowest tier is a terrace at thirty metres running from
+  // x -186 to -202, with the first wall behind it — so the door goes there,
+  // facing back down the bridge. Everything about it is oversized: the eave
+  // is deeper than the porch is wide, the curtains are three metres of cloth,
+  // and the lanterns are the size of a person. It is a doorway built to make
+  // whoever walks through it feel small, which is its entire job in the film.
+  // =========================================================================
+  {
+    const X = -203.5, Y = DOOR;
+    // three broad steps up off the landing
+    for (let i = 0; i < 3; i++) {
+      const st = new THREE.Mesh(box(1.5, 0.42, 15 - i * 1.2), M.stone);
+      st.position.set(X + 4.6 - i * 1.5, Y + 0.21 + i * 0.42, LANE_Z); g.add(st);
+    }
+    const sill = new THREE.Mesh(box(3.0, 0.5, 13.0), M.stone);
+    sill.position.set(X + 1.2, Y + 1.5, LANE_Z); g.add(sill);
+
+    // the porch: posts, a lintel, and an eave that reaches right out over the
+    // steps — the deep shadow under it is what you actually see from the bridge
+    for (const sz of [-1, 1]) {
+      const post = new THREE.Mesh(box(1.1, 8.4, 1.1), M.red);
+      post.position.set(X + 0.6, Y + 5.9, LANE_Z + sz * 5.6); g.add(post);
+      const lamp = lantern(M, { h: 3.2, stone: false, lit: true, mat: M.red });
+      lamp.position.set(X + 2.4, Y + 4.6, LANE_Z + sz * 5.6); g.add(lamp);
+    }
+    const lintel = new THREE.Mesh(box(1.5, 1.5, 13.4), M.red);
+    lintel.position.set(X + 0.6, Y + 10.4, LANE_Z); g.add(lintel);
+    const eave = new THREE.Mesh(box(7.0, 0.7, 16.0), M.roof);
+    eave.position.set(X + 3.6, Y + 11.3, LANE_Z);
+    eave.rotation.z = 0.11; g.add(eave);
+    const ridge = new THREE.Mesh(box(2.2, 1.2, 16.6), M.roof);
+    ridge.position.set(X + 0.4, Y + 11.9, LANE_Z); g.add(ridge);
+
+    // the doorway itself: a dark opening with light coming out of it
+    const dark = new THREE.Mesh(new THREE.PlaneGeometry(11.0, 8.0), M.dark);
+    dark.position.set(X - 0.2, Y + 5.7, LANE_Z);
+    dark.rotation.y = Math.PI / 2; g.add(dark);
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(10.4, 3.0), M.warm(1.05));
+    glow.position.set(X - 0.05, Y + 3.3, LANE_Z);
+    glow.rotation.y = Math.PI / 2; glow.renderOrder = 8; g.add(glow);
+
+    // the noren across the top of it, in panels with gaps between
+    // separate panels with daylight between them — a noren that meets edge to
+    // edge is a blind, and the gaps are the only thing that says it is cloth
+    for (let i = 0; i < 5; i++) {
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 3.4), M.cloth);
+      panel.position.set(X + 0.55, Y + 8.0, LANE_Z - 5.0 + i * 2.5);
+      panel.rotation.y = Math.PI / 2; g.add(panel);
+    }
+    const rod = new THREE.Mesh(box(0.22, 0.22, 12.4), M.dark);
+    rod.position.set(X + 0.55, Y + 9.72, LANE_Z); g.add(rod);
+    // and the board above, lit from below
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.0), M.warm(0.85, '#e8c078'));
+    board.position.set(X + 1.4, Y + 12.9, LANE_Z);
+    board.rotation.y = Math.PI / 2; board.renderOrder = 8; g.add(board);
+    const frame = new THREE.Mesh(box(0.5, 2.6, 7.0), M.dark);
+    frame.position.set(X + 1.55, Y + 12.9, LANE_Z); g.add(frame);
+  }
+
+  // =========================================================================
   // The ferry, alongside the quay
   // =========================================================================
   {
@@ -239,15 +320,15 @@ const route = (dz) => [
   [-67, -212 + dz, 5.6],          // down the gangway
   [-76, -211 + dz, L0 + 0.1],     // onto the quay
   [-92, -206 + dz, L0 + 0.1],     // and round into the town
-  [-108, -206 + dz, L0 + 0.1],
-  [-120, -206 + dz, L1 + 0.1],    // up the first flight
-  [-142, -206 + dz, L1 + 0.1],    // between the restaurants
-  [-154, -206 + dz, L2 + 0.1],    // up the second
+  [-100, -206 + dz, L0 + 0.1],
+  [-114, -206 + dz, L1 + 0.1],    // up the first flight
+  [-134, -206 + dz, L1 + 0.1],    // between the restaurants
+  [-148, -206 + dz, L2 + 0.1],    // up the second
   [-172, -206 + dz, L2 + 0.1],    // under the gate, into the square
   [-183, -206 + dz, L2 + 2.6],    // onto the bridge
   [-189, -206 + dz, L2 + 4.4],    // over the crown of it
   [-198, -206 + dz, DOOR + 0.1],  // down onto the landing
-  [-214, -204 + dz, DOOR + 0.1],  // and in
+  [-205, -206 + dz, DOOR + 1.8],  // up the steps and in
 ];
 
 export const ARRIVAL_CROWDS = [
