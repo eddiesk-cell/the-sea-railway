@@ -247,6 +247,35 @@ function legGeo(variant, wd = 'showa') {
   return G[key];
 }
 
+// One figure as a single merged geometry — body, head and both legs, standing.
+//
+// For processions: a column of marchers is carried along one path by one update
+// loop, and nobody in a marching column has an independent stride anyway. It
+// reads as people because it uses the SAME wardrobe as the crowds do, which is
+// the whole reason it lives here rather than being built again somewhere else:
+// a country whose parade is dressed differently from its townsfolk stops being
+// one country.
+export function figureGeo(variant = 0, wd = 'showa') {
+  const key = 'fig' + variant + wd;
+  if (G[key]) return G[key];
+  const w = W(wd);
+  const S = variant === 2 ? 0.72 : 1;
+  const parts = [bodyGeo(variant, wd).clone(), headGeo(variant, wd).clone()];
+  const leg = legGeo(variant, wd);
+  if (leg.attributes.position.count > 3) {
+    for (const s of [-1, 1]) {
+      const l = leg.clone();
+      l.rotateX(s * 0.16);
+      l.translate(s * 0.075 * S, HIP * S, 0);
+      parts.push(l);
+    }
+  }
+  G[key] = mergePN(parts);
+  return G[key];
+}
+
+export { PALETTE, WARDROBE };
+
 function carGeo() {
   if (G.car) return G.car;
   const parts = [];

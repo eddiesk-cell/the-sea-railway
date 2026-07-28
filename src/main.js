@@ -259,17 +259,19 @@ function ensureRegion(r) {
       if (!routeIsDry(spec, r.station, [shore])) return;
       life.add(spec, r.station, r.stop * 131 + i * 17);
     });
+  }
 
-    // And what HAPPENED here. The island is the place; the moment is the event
-    // the film is remembered for, staged on it and always moving — a castle
-    // crossing the meadow, the Deer God in the shallows, a Catbus coming down
-    // the line. It stands on the shore, so it is built after it.
-    const moment = createMoment(shared, r.id, shore);
-    if (moment) {
-      moment.group.position.z += r.station;
-      scene.add(moment.group);
-      moments.set(r.id, moment);
-    }
+  // And what HAPPENED here. The island is the place; the moment is the event
+  // the film is remembered for, staged on it and always moving — a castle
+  // crossing the meadow, the Deer God in the shallows, a Catbus coming down the
+  // line. Most stand on the shore, so this comes after it; Kaguya's company
+  // descends out of open sky and needs no island, which is why this is not
+  // inside the test above.
+  const moment = createMoment(shared, r.id, shore);
+  if (moment) {
+    moment.group.position.z += r.station;
+    scene.add(moment.group);
+    moments.set(r.id, moment);
   }
 }
 // How far ahead the world is made.
@@ -1372,6 +1374,7 @@ window.__blockers = () => {
 // unverifiable: the preview only renders while a screenshot is being taken, so
 // checking a thirty-second cycle by eye takes a hundred screenshots.
 window.__warp = (sec = 30) => { clock += sec; return +clock.toFixed(1); };
+window.__moments = moments;   // so a moment can be framed without hunting for it
 window.__THREE = THREE;
 window.__cam = camera;
 window.__scene = scene;   // the camera is not in the graph, so this is the way in

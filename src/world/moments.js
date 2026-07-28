@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { box, mulberry, mergePN } from './geo.js';
 import { pal, put } from '../places/kit.js';
 import { makeGlowMaterial } from './paintMaterial.js';
-import { shoreGround } from './nearshore.js';
+import { shoreGround, beastGeo } from './nearshore.js';
+import { figureGeo } from './life.js';
 
 // ---------------------------------------------------------------------------
 // The moments.
@@ -201,16 +202,96 @@ function swarm(mat, opts = {}) {
   };
 }
 
+// A procession: many things spaced evenly along one path, all going the same
+// way at the same speed.
+//
+// This is the shape of half the moments left to build — a parade through a
+// town, a slavers' wagon and the file behind it, a hillside of transformed
+// shapes at night, a court of cats crossing at midnight, a company coming down
+// out of a cloud. A crowd on a RING is milling and a crowd on a street is
+// pacing; only a column on a route is going somewhere, and every one of these
+// is a crowd with somewhere to be.
+//
+// kinds are [{ geo, mat, of, y, scale, spin, bob }] where `of(i, n)` picks which
+// places in the line get that kind — so a band at the front, a flag every sixth
+// marcher and one carriage in the middle are three lines of predicate rather
+// than three loops.
+function procession(kinds, pts, opts = {}) {
+  const {
+    n = 24, speed = 1.1, spacing = 2.6, width = 2.2, seed = 5,
+    fade = true, closed = false, sway = 0.06, march = 1.0,
+  } = opts;
+  const curve = flightPath(pts, closed);
+  const len = curve.getLength();
+  const rnd = mulberry(seed);
+  const g = new THREE.Group();
+
+  const slots = [];
+  for (let i = 0; i < n; i++) {
+    slots.push({ off: i * spacing, side: (rnd() - 0.5) * width, ph: rnd() * 6.28, k: -1 });
+  }
+  const meshes = kinds.map((kind, ki) => {
+    const idx = [];
+    slots.forEach((s, i) => { if (s.k < 0 && kind.of(i, n)) { s.k = ki; idx.push(i); } });
+    if (!idx.length) return null;
+    const m = new THREE.InstancedMesh(kind.geo, kind.mat, idx.length);
+    m.frustumCulled = false;
+    if (kind.ro) m.renderOrder = kind.ro;
+    g.add(m);
+    return { kind, idx, mesh: m };
+  }).filter(Boolean);
+
+  const mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const p = new THREE.Vector3(), t1 = new THREE.Vector3(), sv = new THREE.Vector3();
+
+  return {
+    group: g,
+    update(t) {
+      const head = t * speed;
+      meshes.forEach(({ kind, idx, mesh }) => {
+        idx.forEach((si, k) => {
+          const s = slots[si];
+          let u = ((head - s.off) / len) % 1;
+          if (u < 0) u += 1;
+          curve.getPointAt(u, p);
+          curve.getTangentAt(u, t1);
+          const h = Math.atan2(t1.x, t1.z);
+          // step sideways from the centre line, so a column has a width
+          p.x += Math.cos(h) * s.side;
+          p.z -= Math.sin(h) * s.side;
+          p.y += (kind.y ?? 0) + Math.abs(Math.sin(t * 3.1 * march + s.ph)) * (kind.bob ?? 0.06);
+          e.set(0, h + (kind.spin ? t * kind.spin : 0), Math.sin(t * 2.2 + s.ph) * sway);
+          q.setFromEuler(e);
+          const f = fade ? Math.min(smooth(u, 0, 0.06), smooth(u, 1, 0.93)) : 1;
+          sv.setScalar((kind.scale ?? 1) * f);
+          mm.compose(p, q, sv);
+          mesh.setMatrixAt(k, mm);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+      });
+    },
+  };
+}
+
 // Smoke. A stack of puffs that rise, spread, drift downwind and are replaced —
 // the one thing that tells you a chimney is a working chimney and not a pipe.
 function smokeStack(mat, opts = {}) {
-  const { n = 16, at = [0, 0, 0], r = 1.6, rise = 30, drift = [10, 4], rate = 0.20, seed = 3 } = opts;
+  const { n = 24, at = [0, 0, 0], r = 2.4, rise = 30, drift = [10, 4], rate = 0.16, seed = 3 } = opts;
   const rnd = mulberry(seed);
+  // Puffs must OVERLAP. Evenly spaced spheres on a line read as a string of
+  // beads going up out of a chimney, which is what the first pass looked like —
+  // so each one gets its own speed, its own lateral wander and its own size,
+  // and there are enough of them that the column is never see-through.
   const puffs = [];
-  for (let i = 0; i < n; i++) puffs.push({ t0: i / n, wob: rnd() * 6.28, sp: 0.8 + rnd() * 0.5 });
-  const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 7, 6), mat, n);
+  for (let i = 0; i < n; i++) {
+    puffs.push({
+      t0: rnd(), wob: rnd() * 6.28, sp: 0.7 + rnd() * 0.7,
+      k: 0.65 + rnd() * 0.8, ox: (rnd() - 0.5) * 2.0, oz: (rnd() - 0.5) * 2.0,
+    });
+  }
+  const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), mat, n);
   mesh.frustumCulled = false;
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion();
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
   const p = new THREE.Vector3(), sv = new THREE.Vector3();
   return {
     group: mesh,
@@ -218,13 +299,14 @@ function smokeStack(mat, opts = {}) {
       puffs.forEach((f, i) => {
         const u = (t * rate * f.sp + f.t0) % 1;
         p.set(
-          at[0] + drift[0] * u * u + Math.sin(u * 5 + f.wob) * 1.6,
+          at[0] + f.ox + drift[0] * u * u + Math.sin(u * 3.4 + f.wob) * 3.0 * u,
           at[1] + rise * u,
-          at[2] + drift[1] * u * u + Math.cos(u * 4 + f.wob) * 1.6,
+          at[2] + f.oz + drift[1] * u * u + Math.cos(u * 2.8 + f.wob) * 3.0 * u,
         );
         // grows as it rises, then thins away rather than blinking out
-        const s = r * (0.5 + u * 3.2) * (1 - smooth(u, 0.72, 1.0));
-        sv.setScalar(Math.max(0.001, s));
+        const s = r * f.k * (0.35 + u * 2.9) * (1 - smooth(u, 0.68, 1.0));
+        sv.set(s, s * 0.82, s);
+        e.set(0, f.wob, u * 0.6); q.setFromEuler(e);
         m.compose(p, q, sv);
         mesh.setMatrixAt(i, m);
       });
@@ -604,6 +686,131 @@ function gardener(M) {
   return { group: g, head, arms };
 }
 
+// ---- pieces the processions are made of ------------------------------------
+
+// A pole with a banner hanging off it — carried, so it stands on the ground at
+// the marcher's feet and the cloth is up where a flag is seen from.
+function flagGeo(h = 4.2, w = 1.9) {
+  const parts = [];
+  const pole = new THREE.CylinderGeometry(0.06, 0.07, h, 5);
+  pole.translate(0, h / 2, 0); parts.push(pole.toNonIndexed());
+  const cloth = box(w, h * 0.34, 0.05);
+  cloth.translate(w / 2 + 0.06, h * 0.76, 0); parts.push(cloth.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A cart with a cage on it. Wheels, a bed, four uprights and bars — and it is
+// the BARS that make it a slaver's wagon rather than a farm cart.
+function cageWagonGeo() {
+  const parts = [];
+  const bed = box(2.6, 0.4, 5.0); bed.translate(0, 1.5, 0); parts.push(bed.toNonIndexed());
+  for (const sx of [-1, 1]) for (const sz of [-1.7, 1.7]) {
+    const w = new THREE.CylinderGeometry(0.85, 0.85, 0.2, 12);
+    w.rotateZ(Math.PI / 2); w.translate(sx * 1.4, 0.85, sz);
+    parts.push(w.toNonIndexed());
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const p = box(0.16, 2.4, 0.16);
+    p.translate(sx * 1.2, 2.9, sz * 2.3); parts.push(p.toNonIndexed());
+  }
+  for (let i = 0; i < 9; i++) {
+    const b = box(0.09, 2.3, 0.09);
+    b.translate(-1.2 + i * 0.3, 2.85, 2.3); parts.push(b.toNonIndexed());
+    const b2 = b.clone(); b2.translate(0, 0, -4.6); parts.push(b2);
+  }
+  const roof = box(2.8, 0.14, 5.0); roof.translate(0, 4.1, 0); parts.push(roof.toNonIndexed());
+  const shaft = box(0.14, 0.14, 3.4); shaft.translate(0, 1.5, 3.4); parts.push(shaft.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A cat standing on its back legs and behaving like a courtier: round head,
+// upright ears, a coat to the knee, and a tail held out behind. The ears and
+// the tail are the entire recognition — everything else is a small person.
+function courtCatGeo(hat = false) {
+  const parts = [];
+  const coat = new THREE.CylinderGeometry(0.19, 0.34, 0.74, 8);
+  coat.translate(0, 0.52, 0); parts.push(coat.toNonIndexed());
+  const head = new THREE.SphereGeometry(0.23, 9, 7);
+  head.scale(1, 0.92, 0.94); head.translate(0, 1.06, 0.02); parts.push(head.toNonIndexed());
+  for (const s of [-1, 1]) {
+    const ear = new THREE.ConeGeometry(0.10, 0.24, 4);
+    ear.translate(s * 0.13, 1.28, 0); parts.push(ear.toNonIndexed());
+    const leg = new THREE.CylinderGeometry(0.06, 0.05, 0.34, 5);
+    leg.translate(s * 0.09, 0.17, 0); parts.push(leg.toNonIndexed());
+  }
+  const tail = new THREE.CylinderGeometry(0.055, 0.03, 0.9, 5);
+  tail.rotateX(0.9); tail.translate(0, 0.72, -0.42); parts.push(tail.toNonIndexed());
+  if (hat) {
+    const crown = new THREE.ConeGeometry(0.20, 0.30, 8);
+    crown.translate(0, 1.38, 0); parts.push(crown.toNonIndexed());
+  }
+  return mergePN(parts);
+}
+
+// Something that has half-turned into something else. A body with the wrong
+// head on it, an umbrella with a leg, a lantern with a face, a long low thing
+// with too many legs — that is a night parade, and the joke only works if the
+// shapes are WRONG rather than monstrous.
+function oddGeo(which) {
+  const parts = [];
+  if (which === 'head') {                       // a head five times too big
+    const h = new THREE.SphereGeometry(1.4, 12, 9);
+    h.scale(1, 1.15, 0.95); h.translate(0, 2.6, 0); parts.push(h.toNonIndexed());
+    const b = new THREE.CylinderGeometry(0.42, 0.72, 1.4, 8);
+    b.translate(0, 0.7, 0); parts.push(b.toNonIndexed());
+    for (const s of [-1, 1]) {
+      const l = new THREE.CylinderGeometry(0.11, 0.09, 0.7, 5);
+      l.translate(s * 0.2, 0.35, 0); parts.push(l.toNonIndexed());
+    }
+  } else if (which === 'brolly') {              // an umbrella with one leg
+    const c = new THREE.ConeGeometry(1.15, 0.75, 10);
+    c.translate(0, 2.5, 0); parts.push(c.toNonIndexed());
+    const sh = new THREE.CylinderGeometry(0.07, 0.07, 2.0, 5);
+    sh.translate(0, 1.3, 0); parts.push(sh.toNonIndexed());
+    const leg = new THREE.CylinderGeometry(0.1, 0.08, 0.9, 5);
+    leg.translate(0, 0.45, 0); parts.push(leg.toNonIndexed());
+    const foot = box(0.3, 0.12, 0.55); foot.translate(0, 0.06, 0.1);
+    parts.push(foot.toNonIndexed());
+  } else if (which === 'serpent') {             // a long low thing with a bend
+    for (let i = 0; i < 7; i++) {
+      const s = new THREE.SphereGeometry(0.48 - i * 0.04, 8, 6);
+      s.translate(Math.sin(i * 0.9) * 0.5, 0.75 + Math.sin(i * 1.3) * 0.3, -i * 0.75);
+      parts.push(s.toNonIndexed());
+    }
+    const hd = new THREE.SphereGeometry(0.56, 9, 7);
+    hd.scale(0.9, 0.8, 1.4); hd.translate(0, 1.05, 0.7); parts.push(hd.toNonIndexed());
+  } else {                                      // a fox with a leaf on its head
+    const b = new THREE.SphereGeometry(0.5, 9, 7);
+    b.scale(1, 0.9, 1.6); b.translate(0, 0.95, 0); parts.push(b.toNonIndexed());
+    const hd = new THREE.SphereGeometry(0.3, 8, 6);
+    hd.scale(1.2, 0.9, 1.3); hd.translate(0, 1.35, 0.62); parts.push(hd.toNonIndexed());
+    for (const s of [-1, 1]) {
+      const ear = new THREE.ConeGeometry(0.13, 0.3, 4);
+      ear.translate(s * 0.16, 1.66, 0.5); parts.push(ear.toNonIndexed());
+      for (const sz of [-1, 1]) {
+        const l = new THREE.CylinderGeometry(0.08, 0.07, 0.65, 5);
+        l.translate(s * 0.24, 0.33, sz * 0.5); parts.push(l.toNonIndexed());
+      }
+    }
+    const t = new THREE.CylinderGeometry(0.2, 0.09, 1.1, 6);
+    t.rotateX(1.0); t.translate(0, 1.15, -0.9); parts.push(t.toNonIndexed());
+  }
+  return mergePN(parts);
+}
+
+// A paper lantern on a stick, carried. At night on a dark hill a line of these
+// IS the parade — the shapes between them are a bonus.
+function carriedLanternGeo() {
+  const l = new THREE.SphereGeometry(0.34, 9, 7);
+  l.scale(1, 1.25, 1); l.translate(0, 2.05, 0);
+  return l.toNonIndexed();
+}
+function lanternStickGeo() {
+  const s = new THREE.CylinderGeometry(0.05, 0.05, 2.0, 5);
+  s.translate(0, 1.0, 0);
+  return s.toNonIndexed();
+}
+
 // ===========================================================================
 // What happened in each country
 // ===========================================================================
@@ -841,6 +1048,278 @@ const MOMENTS = {
     return { group: g, update: (t) => live.forEach(l => l.update(t)) };
   },
 
+  // ---- Princess Mononoke, the works: the bellows floor, all night ---------
+  //
+  // Iron Town is a place that never stops. What everyone remembers of it is a
+  // long dark shed with fire under the floor and a line of women walking the
+  // treadles in time, singing — the work IS the scene, and it is the only
+  // factory in Ghibli that is drawn as something people are proud of.
+  iron: (shared, G) => {
+    const M = pal(shared, {
+      wood:  '#4a3a28',
+      iron:  { color: '#4e4238', shadowTint: '#1a1512', rim: 1.3, bands: 3, grain: 0.16 },
+      roof:  { color: '#3a3028', shadowTint: '#141010', rim: 1.0, bands: 3, grain: 0.18, side: THREE.DoubleSide },
+      cloth: { color: '#8a6a4a', shadowTint: '#2e2216', rim: 0.9, bands: 3, grain: 0.2 },
+      smoke: { color: '#8e8880', shadowTint: '#4a463f', rim: 0.5, bands: 2, grain: 0.10 },
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const bx = C[0] + 108, bz = C[1] - 18;
+    const by = top(108, -18) ?? 14;
+
+    // the shed: posts and a long roof, open on the side you pass
+    const shed = new THREE.Group();
+    shed.position.set(bx, by, bz); shed.rotation.y = -1.35; g.add(shed);
+    const rf = new THREE.Mesh(box(34, 0.6, 13), M.roof);
+    rf.position.y = 6.4; shed.add(rf);
+    for (let i = 0; i < 8; i++) {
+      for (const sz of [-1, 1]) {
+        const p = new THREE.Mesh(box(0.5, 6.4, 0.5), M.wood);
+        p.position.set(-15 + i * 4.3, 3.2, sz * 5.6); shed.add(p);
+      }
+    }
+    const back = new THREE.Mesh(box(34, 5.2, 0.5), M.wood);
+    back.position.set(0, 2.6, -6.0); shed.add(back);
+
+    // the furnace: a bar of fire down the middle of the floor, and the smoke
+    // that stands over the whole town because of it
+    const fire = new THREE.Mesh(box(24, 1.2, 2.2), M.warm(3.2, '#ff8a34'));
+    fire.position.set(0, 0.7, 0); fire.renderOrder = 9; shed.add(fire);
+    const smoke = smokeStack(M.smoke, { n: 26, at: [bx, by + 7, bz], r: 2.6, rise: 52, drift: [26, 12], rate: 0.11, seed: 5 });
+    g.add(smoke.group); live.push(smoke);
+
+    // and the line on the treadles. They do not go anywhere; they rise and fall
+    // in a wave down the boards, which is what a bellows crew looks like and
+    // what nothing else in this world does.
+    const fig = figureGeo(0, 'worker');
+    const rows = [];
+    for (const sz of [-1, 1]) {
+      const items = [];
+      for (let i = 0; i < 9; i++) {
+        items.push({ pos: [-14 + i * 3.6, 1.4, sz * 3.4], rot: [0, sz > 0 ? 0 : Math.PI, 0], scale: [1.9, 1.9, 1.9] });
+      }
+      const mesh = put(shed, items, fig, M.cloth);
+      rows.push({ mesh, items, sz });
+    }
+    const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), ee = new THREE.Euler();
+    const pv = new THREE.Vector3(), sv = new THREE.Vector3(1.9, 1.9, 1.9);
+    live.push({
+      update: (t) => {
+        rows.forEach(({ mesh, items, sz }) => {
+          items.forEach((it, i) => {
+            const a = t * 2.1 - i * 0.55 + (sz > 0 ? 0 : 1.6);
+            pv.set(it.pos[0], it.pos[1] + Math.max(0, Math.sin(a)) * 0.62, it.pos[2]);
+            ee.set(Math.sin(a) * 0.10, it.rot[1], 0); qq.setFromEuler(ee);
+            m4.compose(pv, qq, sv); mesh.setMatrixAt(i, m4);
+          });
+          mesh.instanceMatrix.needsUpdate = true;
+        });
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Howl's, the town: the day the war was declared ---------------------
+  //
+  // Market Chipping's one public event: the column going through the square
+  // under the palace, flags up, everyone out to watch it — and every person
+  // watching knows perfectly well where it is going.
+  market: (shared, G) => {
+    const M = pal(shared, {
+      cloth: { color: '#b03a30', shadowTint: '#3c1210', rim: 1.2, bands: 3, grain: 0.14, side: THREE.DoubleSide },
+      gold:  { color: '#c8a24a', shadowTint: '#4a3616', rim: 1.6, bands: 3, grain: 0.12 },
+      coat:  { color: '#4a5668', shadowTint: '#181e26', rim: 1.0, bands: 3, grain: 0.14 },
+      wood:  '#5a4632',
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const pts = [];
+    for (let i = 0; i <= 9; i++) {
+      const a = (-1 + i / 4.5) * 0.95;
+      const dx = Math.cos(a) * 118, dz = Math.sin(a) * 118;
+      pts.push([C[0] + dx, C[1] + dz, (top(dx, dz) ?? 20) + 0.1]);
+    }
+    const par = procession([
+      { geo: flagGeo(5.0, 2.2), mat: M.cloth, of: (i) => i % 5 === 2, scale: 1.7, bob: 0.10 },
+      { geo: flagGeo(4.4, 1.7), mat: M.gold,  of: (i) => i === 0, scale: 2.0, bob: 0.10 },
+      { geo: figureGeo(0, 'euro'), mat: M.coat, of: () => true, scale: 2.6, bob: 0.14 },
+    ], pts, { n: 44, speed: 3.4, spacing: 3.4, width: 5.0, seed: 12, march: 1.4 });
+    g.add(par.group); live.push(par);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Earthsea: what the market in Hort Town is actually selling ---------
+  hort: (shared, G) => {
+    const M = pal(shared, {
+      wood:  { color: '#7a6242', shadowTint: '#2c2214', rim: 0.9, bands: 3, grain: 0.26 },
+      hide:  { color: '#6a5240', shadowTint: '#241a14', rim: 0.9, bands: 3, grain: 0.22 },
+      robe:  { color: '#a89060', shadowTint: '#3c3220', rim: 1.0, bands: 3, grain: 0.18 },
+      rag:   { color: '#8a8272', shadowTint: '#302c26', rim: 0.8, bands: 3, grain: 0.24 },
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const pts = [];
+    for (let i = 0; i <= 8; i++) {
+      const a = (-1 + i / 4) * 0.9;
+      const dx = Math.cos(a) * 88, dz = Math.sin(a) * 88;
+      pts.push([C[0] + dx, C[1] + dz, (top(dx, dz) ?? 18) + 0.1]);
+    }
+    // the ox, the wagon, two guards, and everybody who is going with it whether
+    // they meant to or not
+    const par = procession([
+      { geo: beastGeo({ body: [2.6, 1.1, 1.1], head: 0.36, neck: 0.45, legs: 0.9, tail: 0.7, hump: 0.5 }),
+        mat: M.hide, of: (i) => i === 0, scale: 2.0 },
+      { geo: cageWagonGeo(), mat: M.wood, of: (i) => i === 2, scale: 1.5, bob: 0.05 },
+      { geo: figureGeo(0, 'desert'), mat: M.robe, of: (i) => i === 1 || i === 4, scale: 2.0, bob: 0.12 },
+      { geo: figureGeo(1, 'desert'), mat: M.rag, of: () => true, scale: 1.9, bob: 0.12 },
+    ], pts, { n: 22, speed: 1.5, spacing: 4.6, width: 3.0, seed: 31, march: 0.8 });
+    g.add(par.group); live.push(par);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Pom Poko: the night they showed the town what they were ------------
+  //
+  // The transformation parade. A line of things coming over the hill in the
+  // dark, none of them quite the right shape, all of them carrying a light.
+  tama: (shared, G) => {
+    const M = pal(shared, {
+      fur:   { color: '#6a5a44', shadowTint: '#241d14', rim: 1.0, bands: 3, grain: 0.24 },
+      odd:   { color: '#7a6a78', shadowTint: '#2a2430', rim: 1.2, bands: 3, grain: 0.20 },
+      cloth: { color: '#8a4a4a', shadowTint: '#301818', rim: 1.0, bands: 3, grain: 0.16 },
+      wood:  '#4a3a2a',
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const pts = [];
+    for (let i = 0; i <= 9; i++) {
+      const a = (-1 + i / 4.5) * 1.0;
+      const dx = Math.cos(a) * 112, dz = Math.sin(a) * 112;
+      pts.push([C[0] + dx, C[1] + dz, (top(dx, dz) ?? 20) + 0.1]);
+    }
+    const par = procession([
+      { geo: oddGeo('head'),    mat: M.odd,  of: (i) => i === 3 || i === 17, scale: 2.5, bob: 0.22 },
+      { geo: oddGeo('serpent'), mat: M.odd,  of: (i) => i === 8, scale: 3.8, bob: 0.30 },
+      { geo: oddGeo('brolly'),  mat: M.cloth, of: (i) => i % 7 === 5, scale: 2.4, bob: 0.34 },
+      { geo: lanternStickGeo(), mat: M.wood, of: (i) => i % 3 === 1, scale: 2.2, bob: 0.16 },
+      { geo: oddGeo('fox'),     mat: M.fur,  of: () => true, scale: 2.4, bob: 0.18 },
+    ], pts, { n: 34, speed: 2.4, spacing: 4.0, width: 6.5, seed: 44, march: 1.1 });
+    g.add(par.group); live.push(par);
+    // and the lights they carry, which are what you actually see of it
+    const lamps = procession([
+      { geo: carriedLanternGeo(), mat: M.warm(2.4, '#ffb35a'), of: (i) => i % 3 === 1, scale: 2.2, bob: 0.16, ro: 9 },
+    ], pts, { n: 34, speed: 2.4, spacing: 4.0, width: 6.5, seed: 44, march: 1.1 });
+    g.add(lamps.group); live.push(lamps);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- The Cat Returns: the court comes for you at midnight ---------------
+  cats: (shared, G) => {
+    const M = pal(shared, {
+      fur:   { color: '#4e4a52', shadowTint: '#1a181e', rim: 1.1, bands: 3, grain: 0.18 },
+      white: { color: '#d8d2c6', shadowTint: '#585448', rim: 1.3, bands: 3, grain: 0.14 },
+      gold:  { color: '#c8a24a', shadowTint: '#4a3616', rim: 1.6, bands: 3, grain: 0.12 },
+      wood:  '#4a3a2a',
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const pts = [];
+    for (let i = 0; i <= 8; i++) {
+      const a = (-1 + i / 4) * 1.0;
+      const dx = Math.cos(a) * 62, dz = Math.sin(a) * 62;
+      pts.push([C[0] + dx, C[1] + dz, (top(dx, dz) ?? 6) + 0.1]);
+    }
+    // a palanquin: a box on poles, carried at shoulder height. The whole gag is
+    // that it is exactly a state procession, done by cats, at cat scale.
+    const palan = (() => {
+      const parts = [];
+      const bodyB = box(1.5, 1.3, 2.0); bodyB.translate(0, 1.5, 0); parts.push(bodyB.toNonIndexed());
+      const rf = new THREE.ConeGeometry(1.5, 0.7, 4);
+      rf.rotateY(Math.PI / 4); rf.translate(0, 2.5, 0); parts.push(rf.toNonIndexed());
+      for (const s of [-1, 1]) {
+        const pole = box(0.1, 0.1, 5.0);
+        pole.translate(s * 0.85, 1.2, 0); parts.push(pole.toNonIndexed());
+      }
+      return mergePN(parts);
+    })();
+    const par = procession([
+      { geo: palan, mat: M.gold, of: (i) => i === 7, scale: 2.0, bob: 0.10 },
+      { geo: courtCatGeo(true), mat: M.white, of: (i) => i === 0 || i === 1, scale: 2.4, bob: 0.14 },
+      { geo: courtCatGeo(false), mat: M.fur, of: () => true, scale: 2.2, bob: 0.16 },
+    ], pts, { n: 26, speed: 2.0, spacing: 2.6, width: 3.2, seed: 77, march: 1.5 });
+    g.add(par.group); live.push(par);
+    const lamps = procession([
+      { geo: carriedLanternGeo(), mat: M.warm(2.0, '#ffcf7a'), of: (i) => i % 4 === 2, scale: 1.6, bob: 0.16, ro: 9 },
+    ], pts, { n: 26, speed: 2.0, spacing: 2.6, width: 3.2, seed: 77, march: 1.5 });
+    g.add(lamps.group); live.push(lamps);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- The Tale of the Princess Kaguya: they come to take her back --------
+  //
+  // The one moment in Ghibli that is genuinely unbearable, and it is staged as
+  // a celebration: a company on a cloud, coming down out of the sky playing
+  // music, entirely kind and entirely deaf. It needs no ground, so it does not
+  // ask for any — it is the only moment here built in open air.
+  ink: (shared) => {
+    const M = pal(shared, {
+      cloud: { color: '#e8e4d8', shadowTint: '#8e8a80', rim: 1.8, bands: 2, grain: 0.08 },
+      robe:  { color: '#d8c8a8', shadowTint: '#6a6050', rim: 1.4, bands: 2, grain: 0.10 },
+      gold:  { color: '#d8b45a', shadowTint: '#6a5420', rim: 1.8, bands: 2, grain: 0.10 },
+      lotus: { color: '#e8d8e0', shadowTint: '#7a6c74', rim: 1.6, bands: 2, grain: 0.08 },
+    });
+    const g = new THREE.Group(), live = [];
+
+    const barge = new THREE.Group();
+    // the cloud: a raft of overlapping lobes, flat on top, so it reads as
+    // something you could stand on rather than as weather
+    const rnd = mulberry(2013);
+    for (let i = 0; i < 22; i++) {
+      const a = rnd() * 6.28, d = Math.sqrt(rnd()) * 16;
+      const l = new THREE.Mesh(new THREE.SphereGeometry(3.6 + rnd() * 3.4, 9, 7), M.cloud);
+      l.scale.y = 0.42;
+      l.position.set(Math.cos(a) * d, -1.2 + rnd() * 0.7, Math.sin(a) * d * 1.5);
+      barge.add(l);
+    }
+    // the canopy, and the lotus seat under it
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(5.2, 2.6, 12), M.gold);
+    canopy.position.y = 8.2; barge.add(canopy);
+    for (let i = 0; i < 4; i++) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 7.0, 6), M.gold);
+      const a = (i / 4) * 6.28 + 0.78;
+      p.position.set(Math.cos(a) * 3.4, 3.5, Math.sin(a) * 3.4); barge.add(p);
+    }
+    const lotus = new THREE.Mesh(new THREE.SphereGeometry(2.4, 12, 8, 0, 6.283, 0, 1.4), M.lotus);
+    lotus.scale.y = 0.5; lotus.position.y = 0.8; barge.add(lotus);
+    // and the company, standing in two files on either side of it, not moving
+    const figs = [];
+    const fg = figureGeo(0, 'edo');
+    for (let i = 0; i < 14; i++) {
+      const s = i % 2 ? 1 : -1;
+      figs.push({
+        pos: [s * (5.4 + (i % 3) * 1.4), 0.2, -14 + Math.floor(i / 2) * 4.2],
+        rot: [0, s > 0 ? -1.57 : 1.57, 0], scale: [2.0, 2.0, 2.0],
+      });
+    }
+    put(barge, figs, fg, M.robe);
+    // a glow under the whole thing, because it is lit from somewhere else
+    const under = new THREE.Mesh(new THREE.CircleGeometry(19, 24), M.warm(0.55, '#fff0c8'));
+    under.rotation.x = Math.PI / 2; under.position.y = -2.4; under.renderOrder = 9;
+    barge.add(under);
+    g.add(barge);
+
+    // down out of the sky, slowly, and away again — and it comes from a long
+    // way off, so it is very small before it is very large
+    live.push(flier(barge, [
+      [-620, -560, 520],
+      [-470, -300, 400],
+      [-330, -110, 280],
+      [-236,   60, 186],
+      [-300,  240, 250],
+      [-520,  420, 420],
+    ], { speed: 9.5, bank: 0.25, bob: 1.6, closed: false, fade: true, lean: 8 }));
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
   // ---- Castle in the Sky: the gardener, still keeping the place -----------
   laputa: (shared, G) => {
     const M = pal(shared, {
@@ -912,9 +1391,10 @@ const MOMENTS = {
 export function createMoment(shared, regionId, shore) {
   const make = MOMENTS[regionId];
   if (!make) return null;
-  const G = shoreGround(regionId);
-  if (!G) return null;
-  return make(shared, G, shore);
+  // Most moments stand on their country's island and need its ground. One —
+  // Kaguya's — happens in open air and asks for none, so a missing shore is
+  // not a reason to skip it.
+  return make(shared, shoreGround(regionId), shore);
 }
 
 export { flier, strider, swarm, legRig, smokeStack, birdGeo };
