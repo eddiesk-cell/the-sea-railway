@@ -291,3 +291,46 @@ heads), `spirit` (floor-length, faceless, floating).
 A wardrobe is a set of proportions rather than a new figure — how long the
 garment is, how wide it falls, what is on the head. At the distance you see a
 crowd that is all a silhouette *is*.
+
+## The near shore
+
+Eddie, riding: *"we only see trees and grasses with nothing on some of them...
+for Marnie I only see the wheat and water, I didn't see the house... when we
+ride on the train we should see these in the window."*
+
+That was a structural mistake, not a missing model. A probe down the whole line
+found that **on the window side of the track there is no dry land within four
+hundred metres in twenty-six of the twenty-seven countries** — only Ponyo's
+causeway has a shore. Every country's subject stood far enough back to read as
+scenery, and everything living was authored "beside the track", which put entire
+crowds and every car on open water.
+
+So sixteen countries now have a **near shore**: an island on the window side,
+close enough to read from a seat and far enough that water still separates you
+from it. `src/world/nearshore.js`. It carries that film's subject at a size you
+can see, and it is what that region's people and traffic stand on.
+
+- **Ponyo** — the hill town over the drowned road
+- **Marnie** — the marsh house, big and close and lit
+- **Kiki** — the harbour town and its clock tower
+- **Porco** — the beach, the hangar, the red seaplane
+- **Totoro** — the camphor tree, and the shrine under it
+- **Pom Poko** — the hill half cut away, with the diggers still in the cut
+- **The Cat Returns** — the Bureau, at doll's-house scale beside normal houses
+- **Mononoke, the forest** — two hundred kodama, wolves, a herd of boar, and the
+  Deer God standing in the shallows
+- **Mononoke, the works** — Iron Town's stockade, great house and lit forge
+- **Howl's, the country** — the army: a hill fort, tents, flags, airships
+- **Howl's, the town** — the palace, its stair, the garden, the town below
+- **Earthsea** — the walled city
+- **Nausicaä** — the windmills
+- **Castle in the Sky, the mine** — the winding gear
+- **Castle in the Sky, the island** — Laputa, its tree and its ruined walls
+- **The Boy and the Heron** — the tower, its wall, and the great house
+
+Two rules are enforced in code rather than trusted to the author, because both
+had already gone wrong: an island is **pushed out until its rim clears the track
+corridor** (eleven of sixteen were written too close, one reaching to within ten
+metres of the rails), and **anything that walks or drives has its route
+ray-tested against the actual ground** — a route over open water simply does not
+produce a crowd. `__blockers()` reports anything tall parked against the glass.

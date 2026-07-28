@@ -86,7 +86,13 @@ export function buildCedarForest(shared) {
     const trunks = [[], []], crowns = [];
     for (let i = 0; i < 780; i++) {
       const side = rnd() > 0.5 ? 1 : -1;
-      const x = side * (16 + Math.pow(rnd(), 0.6) * 420);
+      // Sixteen metres from the rails, and the trees are eighty metres tall —
+      // so the window spent this whole country against a green wall. Eddie:
+      // "we only see trees and grasses with nothing on some of them." The
+      // forest starts back far enough now to see INTO, which is the only way
+      // the kodama on the far hillside and the Deer God in the shallows were
+      // ever going to be visible from a seat.
+      const x = side * (62 + Math.pow(rnd(), 0.6) * 420);
       const z = -80 - rnd() * 2450;
       const h = 44 + rnd() * 54;
       const r = h * (0.028 + rnd() * 0.016);

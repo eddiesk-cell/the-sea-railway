@@ -126,17 +126,22 @@ export function pool(M, { r = 30, mat = M.water, lip = M.rock, y = 0 } = {}) {
 const ROOFS = {
   gable: (w, d, h, mat) => {
     const g = new THREE.Group();
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(Math.hypot(w / 2, h) * 2.05, d * 1.06), mat);
-    p.rotation.x = -Math.PI / 2;
+    // The pitch, and it must be the pitch. This was `PI/2 - a` for a long time
+    // — the COMPLEMENT of the roof angle — which stands both slopes up almost
+    // vertical and throws their ends clear of the walls. Eddie, twice: "the
+    // roof is floating off the house, not connected to the walls." Gable is
+    // the default roof, so it was most of the houses in the world.
+    //
+    // A slope runs from the ridge (0, h) to the eave (w/2, 0): centre at
+    // (w/4, h/2), length hypot(w/2, h), tilted a = atan2(h, w/2) from flat.
     const a = Math.atan2(h, w / 2);
+    const len = Math.hypot(w / 2, h);
+    const axis = new THREE.Vector3(0, 0, 1);
     for (const s of [-1, 1]) {
-      const q = p.clone();
-      q.geometry = new THREE.PlaneGeometry(Math.hypot(w / 2, h) * 1.04, d * 1.06);
-      q.rotation.set(-Math.PI / 2, 0, 0);
-      q.rotation.z = 0;
+      const q = new THREE.Mesh(new THREE.PlaneGeometry(len * 1.04, d * 1.06), mat);
+      q.rotation.set(-Math.PI / 2, 0, 0);            // lay it flat
+      q.rotateOnWorldAxis(axis, -s * a);             // then raise it to the ridge
       q.position.set(s * w / 4, h / 2, 0);
-      q.rotation.set(-Math.PI / 2, 0, 0);
-      q.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), -s * (Math.PI / 2 - a));
       g.add(q);
     }
     // the two ends, so you cannot see into the roof void

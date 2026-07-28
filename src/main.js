@@ -40,6 +40,7 @@ import { makePaintMaterial } from './world/paintMaterial.js';
 import { hill, box, curvedRoof, mulberry, fillInstances } from './world/geo.js';
 import { createGrass, MAX_BLADES } from './world/grass.js';
 import { createForest } from './world/trees.js';
+import { nearShore, SHORE_CROWDS } from './world/nearshore.js';
 import { createPost } from './post/painterly.js';
 
 // ===========================================================================
@@ -242,6 +243,21 @@ function ensureRegion(r) {
   scene.add(built.group);
   live.set(r.id, built);
   harvestLand(built.group);
+
+  // The near shore: this country's subject, on land, close enough to read from
+  // a seat. Built with the region rather than lazily like the places, because
+  // being in the window as you pass is the entire point of it.
+  const shore = nearShore(shared, r.id);
+  if (shore) {
+    shore.position.z += r.station;
+    scene.add(shore);
+    shores.set(r.id, shore);
+    harvestLand(shore);
+    (SHORE_CROWDS[r.id] ?? []).forEach((spec, i) => {
+      if (!routeIsDry(spec, r.station, [shore])) return;
+      life.add(spec, r.station, r.stop * 131 + i * 17);
+    });
+  }
 }
 function ensureNear(z, reach = 1600) {
   REGIONS.forEach(r => {
@@ -259,12 +275,53 @@ const places = createPlaces(scene, shared);
 const life = createLife(shared);
 scene.add(life.group);
 const livePops = new Set();
+// Nothing that walks or drives is allowed onto the sea.
+//
+// Eddie: "I see random cars on the Sea." Every one of these routes was authored
+// as two numbers beside the track, and nothing ever asked whether that region
+// had built any ground there — twenty-six of the twenty-seven had not. Rather
+// than correct thirty coordinates by hand and have them drift again the next
+// time a region moves, the route is checked against the actual geometry as it
+// is created: drop a ray on it, and if it is over open water the crowd simply
+// does not exist there. Boats and aircraft are exempt for obvious reasons.
+const dryRay = new THREE.Raycaster();
+const DOWN = new THREE.Vector3(0, -1, 0);
+const shores = new Map();
+const groundOf = (r) => [live.get(r.id)?.group, shores.get(r.id)].filter(Boolean);
+function routeIsDry(spec, shiftZ, targets) {
+  if (spec.kind !== 'cars' && spec.kind !== 'walkers') return true;
+  const p = spec.path;
+  if (!p) return true;
+  const pts = [];
+  for (let k = 0; k < 9; k++) {
+    if (p.type === 'street') {
+      const t = k / 8;
+      pts.push([p.from[0] + (p.to[0] - p.from[0]) * t, p.from[1] + (p.to[1] - p.from[1]) * t + shiftZ]);
+    } else {
+      const a = (k / 9) * Math.PI * 2;
+      pts.push([p.at[0] + Math.cos(a) * p.r, p.at[1] + Math.sin(a) * (p.r2 ?? p.r) + shiftZ]);
+    }
+  }
+  // Only this country's own ground — casting against the whole world made a
+  // thousand full-scene rays during a ride, which is a visible stall.
+  dryRay.far = 900;
+  let dry = 0;
+  pts.forEach(([x, z]) => {
+    dryRay.set(new THREE.Vector3(x, 420, z), DOWN);
+    if (dryRay.intersectObjects(targets, true).some(h => h.point.y > 0.25)) dry++;
+  });
+  return dry >= pts.length * 0.6;
+}
+
 function ensureLifeNear(z, reach = 1500) {
   REGIONS.forEach((r) => {
     if (livePops.has(r.id)) return;
     if (z > r.zNear + reach || z < r.zFar - reach) return;
     livePops.add(r.id);
-    (POPULATIONS[r.id] ?? []).forEach((spec, i) => life.add(spec, r.shift, r.stop * 97 + i * 13));
+    (POPULATIONS[r.id] ?? []).forEach((spec, i) => {
+      if (!routeIsDry(spec, r.shift, groundOf(r))) return;
+      life.add(spec, r.shift, r.stop * 97 + i * 13);
+    });
   });
 }
 
@@ -1180,6 +1237,92 @@ addEventListener('resize', () => {
   applyDpr();
 });
 
+// What is actually OUT OF THE WINDOW at each stop. Eddie: "we only see trees
+// and grasses with nothing on some of them... for Marnie I only see the wheat
+// and water, I didn't see the house." A country can be full of buildings and
+// still show an empty window, because everything in it was put where the ride
+// cannot look. This counts what a seated passenger can see, by name, so the
+// empty ones stop being a matter of opinion.
+window.__inview = (reach = 900) => {
+  const skip = new Set([water.mesh, sky.mesh, grass.mesh, train.group, rail.group]);
+  const box = new THREE.Box3(), c = new THREE.Vector3();
+  return REGIONS.map((r) => {
+    ensureRegion(r);
+    const built = live.get(r.id);
+    const eye = new THREE.Vector3(11.5, 3.4, r.station);
+    let seen = 0, nearest = 1e9;
+    const look = (o) => {
+      if (skip.has(o) || !o.isMesh) return;
+      box.setFromObject(o); box.getCenter(c);
+      const dx = c.x - eye.x, dz = c.z - eye.z;
+      const d = Math.hypot(dx, dz);
+      if (d > reach || dx > 40) return;          // the window faces -x
+      const size = box.getSize(new THREE.Vector3()).length();
+      if (size < 4) return;                       // too small to register at range
+      seen++; nearest = Math.min(nearest, d);
+    };
+    if (built) built.group.traverse(look);
+    scene.children.forEach(o => { if (!live.has(o.name)) o.traverse && o.traverse(look); });
+    return `${r.stop}. ${r.title} — ${seen} things, nearest ${nearest > 1e8 ? '—' : Math.round(nearest) + ' m'}`;
+  });
+};
+
+// Where the dry land is beside the line, country by country. A street of
+// people authored at "x = -40, beside the track" is a street of people walking
+// on the sea unless that region happened to build a shore there — and eleven
+// of them had not. This asks the geometry where the ground actually is.
+window.__shore = () => {
+  const ray = new THREE.Raycaster(); ray.far = 900;
+  const down = new THREE.Vector3(0, -1, 0), from = new THREE.Vector3();
+  const skip = new Set([water.mesh, sky.mesh, grass.mesh, train.group]);
+  const targets = scene.children.filter(o => !skip.has(o));
+  const ground = (x, z) => {
+    from.set(x, 420, z); ray.set(from, down);
+    const hits = ray.intersectObjects(targets, true);
+    for (const h of hits) if (h.point.y > 0.25) return h.point.y;
+    return null;
+  };
+  const out = {};
+  REGIONS.forEach((r) => {
+    ensureRegion(r);
+    const zs = [r.station - 400, r.station - 150, r.station, r.station + 150, r.station + 400];
+    for (let x = -18; x > -460; x -= 8) {
+      const gs = zs.map(z => ground(x, z));
+      if (gs.every(g => g !== null)) {
+        out[r.id] = [x, +Math.max(...gs).toFixed(1)];
+        return;
+      }
+    }
+    out[r.id] = null;
+  });
+  return out;
+};
+
+// What is standing right against the glass. A country can have its subject
+// beautifully placed and still show you nothing, because one slab of its own
+// ground is parked between you and it. This finds the tall things inside the
+// first sixty metres on the window side, which is where a view goes to die.
+window.__blockers = () => {
+  const box = new THREE.Box3(), sz = new THREE.Vector3(), c = new THREE.Vector3();
+  const out = [];
+  REGIONS.forEach((r) => {
+    ensureRegion(r);
+    const built = live.get(r.id);
+    if (!built) return;
+    built.group.traverse((o) => {
+      if (!o.isMesh || o.isInstancedMesh) return;
+      box.setFromObject(o); box.getSize(sz); box.getCenter(c);
+      if (Math.abs(c.z - r.station) > 400) return;
+      const nearX = box.max.x;                     // its edge on the window side
+      if (nearX < -70 || box.min.x > 6) return;    // clear of, or beyond, the line
+      if (sz.y < 14 || sz.length() < 40) return;
+      out.push(`${r.id}: a ${Math.round(sz.x)}×${Math.round(sz.y)}×${Math.round(sz.z)} m mass reaching to x ${Math.round(nearX)}`);
+    });
+  });
+  return out.length ? out : 'nothing against the glass';
+};
+
+window.__THREE = THREE;
 window.__cam = camera;
 window.__scene = scene;   // the camera is not in the graph, so this is the way in
 window.__line = line;     // where the train actually is, when the map disagrees
@@ -1273,6 +1416,48 @@ window.__buried = () => {
     }
     return `${place.name} (${place.region.id}): buried ${over} m — nowhere clear within 1.6 km`;
   });
+};
+// Is anything driving on water? Eddie: "I see random cars on the Sea." A car
+// path is authored as two numbers beside the line and nothing ever checked
+// whether the region put land under them — the same mistake as the shoal and
+// the buried places, in a third costume.
+window.__adrift = () => {
+  REGIONS.forEach(r => ensureRegion(r));
+  // Ask the geometry, not a summary of it. A region's ground is boxes, domes,
+  // shelves and slabs in no particular pattern, so the only honest test is to
+  // drop a ray on the spot and see what it lands on.
+  const ray = new THREE.Raycaster();
+  ray.far = 900;
+  const down = new THREE.Vector3(0, -1, 0);
+  const from = new THREE.Vector3();
+  const targets = [];
+  scene.children.forEach(o => { if (o !== water.mesh && o !== sky.mesh && o !== grass.mesh) targets.push(o); });
+  const solid = (x, z) => {
+    from.set(x, 420, z);
+    ray.set(from, down);
+    const hits = ray.intersectObjects(targets, true);
+    return hits.some(h => h.point.y > 0.25);
+  };
+  const out = [];
+  REGIONS.forEach((r) => {
+    (POPULATIONS[r.id] ?? []).forEach((spec, i) => {
+      if (spec.kind !== 'cars' && spec.kind !== 'walkers') return;
+      const pts = [];
+      if (spec.path?.type === 'street') {
+        const [ax, az] = spec.path.from, [bx, bz] = spec.path.to;
+        for (let k = 0; k <= 20; k++) pts.push([ax + (bx - ax) * k / 20, az + (bz - az) * k / 20 + r.shift]);
+      } else if (spec.path?.type === 'ring') {
+        const [cx, cz] = spec.path.at, rr = spec.path.r, r2 = spec.path.r2 ?? rr;
+        for (let k = 0; k < 20; k++) {
+          const a = (k / 20) * Math.PI * 2;
+          pts.push([cx + Math.cos(a) * rr, cz + Math.sin(a) * r2 + r.shift]);
+        }
+      } else return;
+      const wet = pts.filter(([x, z]) => !solid(x, z)).length;
+      if (wet > 2) out.push(`${r.id} #${i} ${spec.kind}: ${wet}/${pts.length} of its route is open water`);
+    });
+  });
+  return out.length ? out : 'everything on land';
 };
 window.__land = () => LAND.map(L => ({
   x: Math.round(L.x), z: Math.round(L.z), y: Math.round(L.y),

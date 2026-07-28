@@ -31,11 +31,11 @@ export default {
     {
       id: 'the-door',
       name: 'The door at the foot',
-      at: [-180, -1300], r: 66, ground: 1.4,
+      at: [-20, -1300], r: 66, ground: 1.4,
       trail: { from: [-60, -1400], style: 'stones' },
       build: (M) => {
         const g = new THREE.Group();
-        const C = [-180, -1300];
+        const C = [-20, -1300];
 
         // Twenty metres from the tower, at the foot of it, on the side you
         // cannot see from the line. It is far too small for the building, and
