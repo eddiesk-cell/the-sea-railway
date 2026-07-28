@@ -1374,7 +1374,108 @@ window.__blockers = () => {
 // unverifiable: the preview only renders while a screenshot is being taken, so
 // checking a thirty-second cycle by eye takes a hundred screenshots.
 window.__warp = (sec = 30) => { clock += sec; return +clock.toFixed(1); };
+// What is standing in the air.
+//
+// __buried() finds things UNDER the ground; this is the other half, and it is
+// the one Eddie keeps seeing: "I still see some structures floating off the
+// ground." For every solid thing in the world it drops a ray from just under
+// the object's own base and reports the gap to whatever is beneath it. A
+// building three metres off its plot is invisible from directly in front and
+// obvious from a passing train.
+// The height of the land at a point, from the SAME registry the grass grows
+// on. Raycasting for this does not work: a dome is a single-sided shell with
+// no underside, so a ray that starts inside one — which is what a slightly
+// sunk building gives you — passes straight through and finds the sea, and
+// every wall on Laputa gets reported as floating a hundred and twenty metres
+// up. The registry knows the actual surface, so ask it.
+function landHeightAt(x, z) {
+  let best = null;
+  for (const L of LAND) {
+    const D = Math.hypot(x - L.x, z - L.z);
+    if (D >= L.r) continue;
+    const y = hillTopAt(L, D, x, z);
+    if (y !== null && (best === null || y > best)) best = y;
+  }
+  for (const P of PADS) {
+    if (Math.abs(x - P.x) > P.hx || Math.abs(z - P.z) > P.hz) continue;
+    if (best === null || P.y > best) best = P.y;
+  }
+  return best;
+}
+// hillSampler, once more — the roughness is on the RADIUS, so the height at a
+// distance has to be solved for.
+function hillTopAt(L, D, x, z) {
+  if (D < 1e-4) return L.y + L.h;
+  const a = Math.atan2(z - L.z, x - L.x);
+  const n = Math.sin(a * 3.0 + L.off[0]) * 0.34 + Math.sin(a * 5.0 + L.off[1]) * 0.22
+          + Math.sin(a * 9.0 + L.off[2]) * 0.12 + Math.sin(a * 17.0 + L.off[3]) * 0.06;
+  let u = D / L.r;
+  for (let i = 0; i < 4; i++) {
+    if (u >= 1) break;
+    const y = Math.sqrt(Math.max(0, 1 - u * u));
+    const s = Math.max(0.2, 1 + n * L.rough * (1 - y * 0.55));
+    u = D / (L.r * s);
+  }
+  if (u >= 1) return null;
+  const y = Math.sqrt(Math.max(0, 1 - u * u));
+  return L.y + y * L.h * (1 + n * L.rough * 0.35);
+}
+
+window.__floating = (minGap = 1.5, limit = 40) => {
+  REGIONS.forEach(r => ensureRegion(r));
+  const b = new THREE.Box3(), c = new THREE.Vector3(), s = new THREE.Vector3();
+  const found = [];
+  REGIONS.forEach((r) => {
+    // Only the built world and its islands. Things in a MOMENT are allowed to
+    // be in the air — that is most of what a moment is.
+    [live.get(r.id)?.group, shores.get(r.id)].filter(Boolean).forEach((root) => {
+      root.traverse((o) => {
+        if (!o.isMesh || !o.visible || o.isInstancedMesh) return;
+        // Foliage is above the ground by definition — a crown sits on a trunk,
+        // and the trunk is a different mesh. Translucency is the one thing only
+        // leaves have, which makes it a free way to tell a canopy from a shed.
+        if ((o.material.uniforms?.uTrans?.value ?? 0) > 0) return;
+        b.setFromObject(o); b.getSize(s); b.getCenter(c);
+        // a structure: big enough to notice, small enough to be a thing rather
+        // than a landscape, and not up in the sky where clouds live
+        if (!(s.x > 1.5 && s.x < 60 && s.z > 1.5 && s.z < 60 && s.y > 1 && s.y < 60)) return;
+        if (b.min.y > 200) return;
+        // Support from the land under it, or from anything of its own that
+        // reaches lower — a chimney is held up by its roof, a windmill's sail
+        // by its tower.
+        const land = landHeightAt(c.x, c.z);
+        if (land === null) return;                  // over open water: not our business
+        let support = land;
+        root.traverse((sib) => {
+          if (sib === o || !sib.isMesh || !sib.visible) return;
+          tmpBox.setFromObject(sib);
+          if (tmpBox.max.y >= b.min.y + 0.4 || tmpBox.max.y <= support) return;
+          // it holds this up if their footprints overlap at all
+          if (tmpBox.max.x < b.min.x || tmpBox.min.x > b.max.x) return;
+          if (tmpBox.max.z < b.min.z || tmpBox.min.z > b.max.z) return;
+          support = tmpBox.max.y;
+        });
+        const gap = b.min.y - support;
+        if (gap > minGap) {
+          found.push({ gap, s: `${r.id}: ${Math.round(s.x)}×${Math.round(s.y)}×${Math.round(s.z)} m `
+            + `at (${Math.round(c.x)}, ${Math.round(c.z - r.zNear)}) — ${gap.toFixed(1)} m up` });
+        }
+      });
+    });
+  });
+  found.sort((a, x) => x.gap - a.gap);
+  return found.length ? found.slice(0, limit).map(f => f.s) : 'nothing floating';
+};
+
 window.__moments = moments;   // so a moment can be framed without hunting for it
+window.__regions = REGIONS;
+// The air at a point on the line, so a seam can be checked as a curve rather
+// than by riding through it and hoping to catch the frame it goes wrong on.
+window.__air = (z, hour = 0.62) => {
+  const a = atmosphereAt(z, hour);
+  return { region: a.region.id, ink: +a.ink.toFixed(3), exposure: +a.exposure.toFixed(3),
+           fog: a.fog.toArray().map(v => +v.toFixed(3)), sat: +a.sat.toFixed(3) };
+};
 window.__THREE = THREE;
 window.__cam = camera;
 window.__scene = scene;   // the camera is not in the graph, so this is the way in

@@ -492,37 +492,251 @@ function movingCastle(M) {
 
 // ---- the Deer God ---------------------------------------------------------
 //
-// A shape with far too many points on its head, twice the height of anything
-// else, walking so slowly you are never quite sure it moved. It used to stand
-// here and never move at all, which is a statue of the shot rather than the
-// shot itself.
+// Eddie: "for the Deer God, it's a lazy craft — I think you should be more
+// detailed, fine tune more, and it'll even be more amazing."
+//
+// He is right, and the first version was four shapes and a fan of sticks. What
+// that thing actually is, in order of how much each part carries:
+//
+//   1. THE CROWN. Not a fan and not a wheel — a tree. Two beams sweep up and
+//      BACK from the brow, and every tine on them forks again, and again. A
+//      radial spray reads as a sea urchin; a branching structure reads as a
+//      forest growing out of an animal's head, which is the whole idea.
+//   2. THE FACE. It is not a deer's head. It is a short pale muzzle with a
+//      RED mask across the eyes, and it is the one part of the design that is
+//      unsettling rather than beautiful.
+//   3. THE PROPORTIONS. Deep chest, light hindquarters, a back that slopes
+//      down to the tail, a neck that rises and reaches forward, and legs far
+//      too thin for the mass above them.
+//   4. WHAT IT DOES TO THE GROUND. Grass comes up where it puts a foot down
+//      and dies again behind it. Nothing else in this world does that, and it
+//      is the reason you know it is a god and not an elk.
+//
+// Everything is built facing +Z, standing on y = 0, so the strider can drive it
+// exactly like anything else.
+
+// One antler beam, grown rather than placed: a length, a direction, and a
+// couple of children off it, recursively.
+function antlerBeam(mat, { len, thick, dir, up, depth, rnd, out }) {
+  const seg = new THREE.Mesh(new THREE.CylinderGeometry(thick * 0.62, thick, len, 5), mat);
+  // point +Y down the beam's direction
+  const d = dir.clone().normalize();
+  seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+  seg.position.copy(d).multiplyScalar(len * 0.5);
+  out.add(seg);
+  if (depth <= 0) return;
+  const tip = d.clone().multiplyScalar(len);
+  const branchN = depth >= 2 ? 3 : 2;
+  for (let i = 0; i < branchN; i++) {
+    const child = new THREE.Group();
+    child.position.copy(tip);
+    out.add(child);
+    // fork outward and back, and open wider the further out you go
+    const spread = 0.55 + rnd() * 0.45;
+    const side = new THREE.Vector3(up.y * d.z - up.z * d.y, up.z * d.x - up.x * d.z,
+                                   up.x * d.y - up.y * d.x).normalize();
+    const nd = d.clone()
+      .addScaledVector(side, (i - (branchN - 1) / 2) * spread)
+      .addScaledVector(up, 0.34 + rnd() * 0.3)
+      .normalize();
+    antlerBeam(mat, {
+      len: len * (0.56 + rnd() * 0.16), thick: thick * 0.66,
+      dir: nd, up, depth: depth - 1, rnd, out: child,
+    });
+  }
+}
+
+// A body lofted along a spine: an ellipse at each station, skinned between.
+//
+// A stack of spheres reads as a stack of spheres — you can see every join, and
+// the Deer God came out looking like a snowman with legs. One continuous
+// surface from the tail through the chest and up the neck is the difference
+// between an animal and an assembly, and it is forty lines.
+function loft(stations, sides = 14) {
+  const P = stations.map(s => new THREE.Vector3(0, s.y, s.z));
+  const RIGHT = new THREE.Vector3(1, 0, 0);
+  const rings = stations.map((s, i) => {
+    const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
+    const t = b.clone().sub(a).normalize();
+    const up = new THREE.Vector3().crossVectors(RIGHT, t).normalize();
+    const out = [];
+    for (let k = 0; k < sides; k++) {
+      const ang = (k / sides) * Math.PI * 2;
+      out.push(P[i].clone()
+        .addScaledVector(RIGHT, Math.cos(ang) * s.w)
+        .addScaledVector(up, Math.sin(ang) * s.h));
+    }
+    return out;
+  });
+  const v = [];
+  const push = (a, b, c) => { v.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); };
+  for (let i = 0; i < rings.length - 1; i++) {
+    for (let k = 0; k < sides; k++) {
+      const k2 = (k + 1) % sides;
+      push(rings[i][k], rings[i + 1][k2], rings[i][k2]);
+      push(rings[i][k], rings[i + 1][k], rings[i + 1][k2]);
+    }
+  }
+  for (const [ri, flip] of [[0, true], [rings.length - 1, false]]) {
+    const c = P[ri];
+    for (let k = 0; k < sides; k++) {
+      const k2 = (k + 1) % sides;
+      if (flip) push(c, rings[ri][k], rings[ri][k2]);
+      else push(c, rings[ri][k2], rings[ri][k]);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function deerGod(M) {
   const g = new THREE.Group();
-  const glow = M.cool(0.55, '#cfe4d2');
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 9), glow);
-  body.scale.set(1.1, 1.5, 2.4); body.position.y = 4.6; g.add(body);
+  const coat = M.coat, pale = M.pale, red = M.face, horn = M.horn;
+  const rnd = mulberry(1997);
 
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.5, 2.6, 7), glow);
-  neck.rotation.x = 0.5; neck.position.set(0, 6.0, 2.6); g.add(neck);
-  const head = new THREE.Group(); head.position.set(0, 7.0, 3.5); g.add(head);
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.72, 9, 7), M.paper);
-  skull.scale.set(0.9, 0.95, 1.5); head.add(skull);
-  // the antlers: far too many tines, which is the entire silhouette
-  for (let i = 0; i < 22; i++) {
-    const a = (i / 22) * Math.PI * 2;
-    const len = 1.6 + (i % 5) * 0.75;
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, len, 5), M.paper);
-    t.position.set(Math.sin(a) * 0.7, 0.7 + len * 0.42, Math.cos(a) * 0.5 - 0.3);
-    t.rotation.set(Math.cos(a) * 0.5, 0, -Math.sin(a) * 0.7);
-    head.add(t);
+  // ---- the body: one form, tail to throat --------------------------------
+  // Deep at the shoulder, light behind, a back that falls away to the tail,
+  // and a neck that rises out of it rather than being stuck on.
+  const body = new THREE.Mesh(loft([
+    { z: -3.15, y: 4.68, w: 0.16, h: 0.20 },
+    { z: -2.55, y: 4.60, w: 0.56, h: 0.72 },
+    { z: -1.75, y: 4.58, w: 0.78, h: 0.94 },
+    { z: -0.85, y: 4.66, w: 0.86, h: 1.06 },
+    { z:  0.10, y: 4.78, w: 0.90, h: 1.16 },
+    { z:  0.95, y: 4.86, w: 0.84, h: 1.10 },
+    { z:  1.60, y: 5.02, w: 0.66, h: 0.86 },
+    { z:  2.05, y: 5.45, w: 0.48, h: 0.60 },
+    { z:  2.40, y: 6.10, w: 0.40, h: 0.48 },
+    { z:  2.72, y: 6.80, w: 0.35, h: 0.42 },
+    { z:  3.05, y: 7.42, w: 0.32, h: 0.38 },
+    { z:  3.34, y: 7.86, w: 0.30, h: 0.34 },
+  ]), coat);
+  g.add(body);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.20, 1.0, 6), pale);
+  tail.rotation.x = 2.4; tail.position.set(0, 4.78, -3.4); g.add(tail);
+
+  // ---- the head ----------------------------------------------------------
+  const head = new THREE.Group();
+  head.position.set(0, 8.00, 3.45);
+  head.rotation.x = -0.30;
+  g.add(head);
+  // the skull and muzzle, lofted too, so the face is one shape and not a nose
+  // stuck on a ball
+  const skull = new THREE.Mesh(loft([
+    { z: -0.55, y: 0.06, w: 0.34, h: 0.40 },
+    { z: -0.20, y: 0.10, w: 0.46, h: 0.50 },
+    { z:  0.20, y: 0.02, w: 0.42, h: 0.44 },
+    { z:  0.62, y: -0.10, w: 0.30, h: 0.30 },
+    { z:  0.98, y: -0.16, w: 0.24, h: 0.22 },
+    { z:  1.18, y: -0.18, w: 0.16, h: 0.15 },
+  ], 12), pale);
+  head.add(skull);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 6), M.dark);
+  nose.scale.set(1.2, 0.8, 0.9); nose.position.set(0, -0.18, 1.20); head.add(nose);
+  // The red mask across the eyes. It is the one part of this design that is not
+  // beautiful, and it is the reason the thing is frightening rather than
+  // decorative — so it wraps the face rather than sitting on it.
+  const mask = new THREE.Mesh(loft([
+    { z: -0.22, y: 0.12, w: 0.48, h: 0.50 },
+    { z:  0.10, y: 0.05, w: 0.45, h: 0.46 },
+    { z:  0.40, y: -0.04, w: 0.36, h: 0.36 },
+  ], 12), red);
+  head.add(mask);
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 6), M.dark);
+    eye.position.set(s * 0.30, 0.14, 0.28); head.add(eye);
+    // ears: long, out and back, and they are what stops the head reading as a
+    // skull on a stick
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), pale);
+    ear.scale.set(0.46, 0.11, 0.20);
+    ear.position.set(s * 0.62, 0.22, -0.36);
+    ear.rotation.z = s * 0.46; ear.rotation.y = s * -0.65; head.add(ear);
+    // the small goat horns, in front of the crown
+    const hn = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.55, 6), horn);
+    hn.position.set(s * 0.18, 0.52, -0.10); hn.rotation.z = s * 0.26; head.add(hn);
   }
-  const rig = legRig(glow, {
-    hips: [[-0.9, 1.5, 0], [0.9, 1.5, Math.PI], [-0.9, -1.5, Math.PI], [0.9, -1.5, 0]],
-    len: 4.6, thick: 0.16,
+
+  // ---- the crown ---------------------------------------------------------
+  // Two beams, swept up and BACK, each growing three generations of forks. It
+  // ends up somewhere near a hundred tines, which is what it should be — the
+  // thing is supposed to look like a wood walking about on an animal.
+  const crown = new THREE.Group();
+  crown.position.set(0, 0.34, -0.28);      // out of the brow, not floating over it
+  head.add(crown);
+  const UP = new THREE.Vector3(0, 1, 0);
+  for (const s of [-1, 1]) {
+    const beam = new THREE.Group();
+    beam.position.set(s * 0.30, 0.1, 0);
+    crown.add(beam);
+    antlerBeam(horn, {
+      len: 2.7, thick: 0.13,
+      dir: new THREE.Vector3(s * 0.50, 1.0, -0.34),
+      up: UP, depth: 4, rnd, out: beam,
+    });
+  }
+
+  // ---- the legs ----------------------------------------------------------
+  // Too thin for what is above them, which is the point.
+  const rig = legRig(coat, {
+    hips: [[-0.62, 0.90, 0], [0.62, 0.90, Math.PI], [-0.58, -1.90, Math.PI], [0.58, -1.90, 0]],
+    len: 4.3, thick: 0.12,
   });
-  rig.group.position.y = 4.6;
+  rig.group.position.y = 4.3;
   g.add(rig.group);
+  // and the hooves, which are two dark specks and the only thing that stops a
+  // leg reading as a stick pushed into the ground
+  for (const [hx, hz] of [[-0.62, 0.90], [0.62, 0.90], [-0.58, -1.90], [0.58, -1.90]]) {
+    const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.24, 6), M.dark);
+    hoof.position.set(hx, 0.12, hz); g.add(hoof);
+  }
   return { group: g, rig, head };
+}
+
+// What the ground does when it walks on you.
+//
+// Grass comes up under the foot and dies again behind it. It is the single
+// clearest statement of what this animal is, it costs one instanced mesh, and
+// without it the Deer God is only a very tall elk.
+function quickening(mat, n = 96) {
+  const blade = new THREE.ConeGeometry(0.10, 1.0, 4);
+  blade.translate(0, 0.5, 0);
+  const mesh = new THREE.InstancedMesh(blade, mat, n);
+  mesh.frustumCulled = false;
+  const rnd = mulberry(31);
+  const seeds = [];
+  for (let i = 0; i < n; i++) {
+    seeds.push({ a: rnd() * 6.28, d: 0.4 + rnd() * 3.6, s: 0.5 + rnd() * 1.2, ph: rnd() });
+  }
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const p = new THREE.Vector3(), sv = new THREE.Vector3();
+  let head = 0;                       // how far along the walk the newest patch is
+  const trail = [];                   // where the feet have been, and when
+  return {
+    group: mesh,
+    // called with the animal's current world position and the clock
+    step(x, y, z, t) {
+      if (!trail.length || Math.hypot(x - trail[trail.length - 1].x, z - trail[trail.length - 1].z) > 6) {
+        trail.push({ x, y, z, t });
+        if (trail.length > 8) trail.shift();
+      }
+      head = t;
+      seeds.forEach((sd, i) => {
+        const spot = trail[i % Math.max(1, trail.length)];
+        if (!spot) { sv.setScalar(0.001); m.compose(p, q, sv); mesh.setMatrixAt(i, m); return; }
+        const age = t - spot.t + sd.ph * 1.4;
+        // up fast, down slow, and gone
+        const life = Math.max(0, Math.min(1, age / 0.9)) * (1 - smooth(age, 2.2, 4.4));
+        p.set(spot.x + Math.cos(sd.a) * sd.d, spot.y - 0.1, spot.z + Math.sin(sd.a) * sd.d);
+        e.set(0, sd.a, Math.sin(t * 1.4 + sd.a) * 0.14); q.setFromEuler(e);
+        sv.set(sd.s * 0.7, sd.s * 2.4 * life, sd.s * 0.7);
+        m.compose(p, q, sv);
+        mesh.setMatrixAt(i, m);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    },
+  };
 }
 
 // ---- Kiki ------------------------------------------------------------------
@@ -1079,13 +1293,26 @@ const MOMENTS = {
 
   // ---- Princess Mononoke: the Deer God crosses, and the forest watches -----
   cedar: (shared, G, shore) => {
-    const M = pal(shared, { paper: '#e8e2ce' });
+    const M = pal(shared, {
+      // Not white. The coat is a warm cream that goes gold in the light, the
+      // face is the one red thing in a country of greens, and the crown is
+      // bone. Painting all three the same pale grey is what made it read as a
+      // cut-out of an animal rather than an animal.
+      coat: { color: '#d8c69a', shadowTint: '#7a6a4e', rim: 1.6, bands: 3, grain: 0.12 },
+      pale: { color: '#efe6cf', shadowTint: '#8c8470', rim: 1.8, bands: 3, grain: 0.10 },
+      face: { color: '#b8503c', shadowTint: '#5a2018', rim: 1.5, bands: 3, grain: 0.10 },
+      horn: { color: '#e8e0c8', shadowTint: '#807a66', rim: 2.0, bands: 3, grain: 0.10 },
+      dark: { color: '#241c18', shadowTint: '#0c0808', rim: 1.0, bands: 2, grain: 0.08 },
+      quick: { color: '#7fc25a', shadowTint: '#2e5024', rim: 1.2, bands: 3, grain: 0.16, translucency: 0.7 },
+    });
     const g = new THREE.Group(), live = [];
     const { C } = G;
 
     const dg = deerGod(M);
     dg.group.scale.setScalar(2.2);
     g.add(dg.group);
+    const quick = quickening(M.quick, 110);
+    g.add(quick.group);
     // It walks the shallows between the forest and the line — in the water,
     // in front of everything, which is the only place on this island where
     // twenty metres of pale animal is not behind a cedar.
@@ -1099,7 +1326,14 @@ const MOMENTS = {
       closed: false, fade: true, scale: 2.2, bank: 0,
     });
     live.push(walk);
-    live.push({ update: (t) => { dg.head.rotation.y = Math.sin(t * 0.11) * 0.5; } });
+    live.push({
+      update: (t) => {
+        // it looks about, slowly, and it never hurries
+        dg.head.rotation.y = Math.sin(t * 0.11) * 0.5;
+        dg.head.rotation.x = -0.32 + Math.sin(t * 0.17 + 1.1) * 0.10;
+        quick.step(dg.group.position.x, 0.35, dg.group.position.z, t);
+      },
+    });
 
     // And the hillside turns to look at it. A field of kodama that all face
     // the same way is wallpaper; a field that slowly swings round to follow

@@ -412,8 +412,22 @@ export function createTrain(shared) {
         pil.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.48, pz);
         car.add(pil);
       }
-      // two doors, recessed, with their own small light
-      for (const dz of [-CAR_LEN * 0.34, CAR_LEN * 0.34]) {
+      // Two doors, recessed, with their own small light — and pushed right out
+      // to the ends of the car.
+      //
+      // They used to sit a third of the way along, which put one of them 2.95 m
+      // from the passenger's eye. On a 16:9 screen that is just outside the
+      // frame; on Eddie's ultrawide the horizontal field is nearly a hundred
+      // degrees and the door, its window and its grab rail are all sitting in
+      // the bottom-left corner of the view. Same rule as the cantrail and the
+      // pillars before it: NOTHING on the outside of this car may occupy the
+      // band the passenger looks through — and "the band" has to mean the
+      // widest screen anybody might use, not the one it was checked on.
+      //
+      // At ±7.4 the near door is 4.6 m from the seat and 2.0 m out from it,
+      // which needs a horizontal field of 132° before it appears. No screen
+      // does that.
+      for (const dz of [-CAR_LEN * 0.435, CAR_LEN * 0.435]) {
         const rec = new THREE.Mesh(box(0.10, 2.45, 1.30), dark);
         rec.position.set(sx * (CAR_W / 2 + 0.01), FLOOR_Y + 1.24, dz);
         car.add(rec);

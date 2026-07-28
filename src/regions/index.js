@@ -527,18 +527,40 @@ export const LINE = [
 });
 
 // Which region owns this stretch of line, and how far into the next one we are.
+// Which two countries' air you are between, and how far across.
+//
+// Eddie, riding: "the glitches show from transition from one island to another
+// — for example colour faded to black, then back to colour, then fade to black
+// and white again."
+//
+// He is describing a double transition, and that is exactly what this did. The
+// blend zone used to be a FULL BLEND on each side of a seam, each reaching all
+// the way to the neighbour: the last 280 m of a country ramped to 100% of the
+// next one, and then the first 280 m of the next country ramped from 100% of
+// the PREVIOUS one back to itself. So crossing a boundary went
+//
+//     country A → country B → *snap* → country A → country B
+//
+// with a hard jump in the middle, and in a country that is monochrome or very
+// dark it reads as the picture going out and coming back twice.
+//
+// A seam wants ONE crossing, so each side owns half of it. Half a blend before
+// the boundary the mix is 0; at the boundary it is exactly 50/50 whichever way
+// you approach it; half a blend after, it is 0 again. Same total width, one
+// transition, and continuous — which the old one was not, at any speed.
 export function regionAt(z) {
   let i = REGIONS.findIndex(r => z <= r.zNear && z > r.zFar);
   if (i < 0) i = z > REGIONS[0].zNear ? 0 : REGIONS.length - 1;
   const r = REGIONS[i];
+  const H = BLEND / 2;
   const next = REGIONS[i + 1];
-  if (next && z < r.zFar + BLEND) {
-    const t = THREE.MathUtils.smoothstep((r.zFar + BLEND - z) / BLEND, 0, 1);
+  if (next && z < r.zFar + H) {
+    const t = 0.5 * THREE.MathUtils.smoothstep((r.zFar + H - z) / H, 0, 1);
     return { a: r, b: next, t };
   }
   const prev = REGIONS[i - 1];
-  if (prev && z > r.zNear - BLEND) {
-    const t = THREE.MathUtils.smoothstep((z - (r.zNear - BLEND)) / BLEND, 0, 1);
+  if (prev && z > r.zNear - H) {
+    const t = 0.5 * THREE.MathUtils.smoothstep((z - (r.zNear - H)) / H, 0, 1);
     return { a: r, b: prev, t };
   }
   return { a: r, b: r, t: 0 };

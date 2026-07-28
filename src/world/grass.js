@@ -40,12 +40,46 @@ function bladeGeometry() {
   return g;
 }
 
+// The tiles of the field, numbered NEAREST FIRST.
+//
+// A blade's seed says which tile it belongs to, and the tiles used to be
+// numbered in raster order. That meant lowering the blade count did not thin
+// the field — it cut whole ROWS off one side of it. At the default count the
+// grass reached a hundred metres one way and thirty the other, and thirty
+// metres is well inside the distance blades fade over, so on that side they did
+// not fade at all: they simply stopped, in a straight line, a few metres from
+// the window. Eddie: "the grasses still disappeared suddenly before screen
+// passes."
+//
+// Numbered nearest-first, ANY count draws a centred disc — and the radius of
+// that disc is known, so the fade can be made to finish inside it whatever the
+// slider says.
+const TILE_ORDER = (() => {
+  const all = [];
+  for (let i = 0; i < TILES * TILES; i++) {
+    const tx = (i % TILES) - TILES / 2, ty = Math.floor(i / TILES) - TILES / 2;
+    all.push({ i, d: Math.hypot(tx + 0.5, ty + 0.5) });
+  }
+  all.sort((a, b) => a.d - b.d);
+  return all.map(o => o.i);
+})();
+
+// How far the field actually reaches at a given blade count, less a tile for
+// the ragged edge of the disc.
+function radiusFor(n) {
+  const tiles = Math.max(1, Math.floor(n / PER_TILE));
+  return Math.max(TILE, Math.min(TILE * TILES * 0.5 - TILE,
+                                 TILE * (Math.sqrt(tiles / Math.PI) - 1.0)));
+}
+
 export function createGrass(shared, opts = {}) {
   const geo = bladeGeometry();
 
-  // the one float each blade gets
+  // the one float each blade gets — its tile taken from the nearest-first list
   const seeds = new Float32Array(MAX_BLADES);
-  for (let i = 0; i < MAX_BLADES; i++) seeds[i] = i;
+  for (let i = 0; i < MAX_BLADES; i++) {
+    seeds[i] = TILE_ORDER[(i / PER_TILE) | 0] * PER_TILE + (i % PER_TILE);
+  }
   geo.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seeds, 1));
   geo.instanceCount = opts.count ?? 1_600_000;
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
@@ -55,7 +89,7 @@ export function createGrass(shared, opts = {}) {
     uTile:    { value: TILE },
     uTiles:   { value: TILES },
     uPerTile: { value: PER_TILE },
-    uRadius:  { value: (TILE * TILES) * 0.5 - TILE },
+    uRadius:  { value: radiusFor(opts.count ?? 1_600_000) },
     uHeight:  { value: 0.95 },
     uDensity: { value: 1.0 },
     uBathXZ:  { value: new THREE.Vector2(-268, -198) },
@@ -177,7 +211,10 @@ export function createGrass(shared, opts = {}) {
         float ground = mix(0.28 * (1.0 - smoothstep(5.2, 7.4, ax)), landY, onLand);
 
         float dist = distance(wxz, uCamXZ);
-        float fade = 1.0 - smoothstep(uRadius * 0.40, uRadius, dist);
+        // full height for most of the field, then down over the last third of
+        // it — starting the fade at 0.40 left more than half the visible grass
+        // half-height for no reason anybody could see
+        float fade = 1.0 - smoothstep(uRadius * 0.62, uRadius, dist);
 
         if (r2.z > dens || fade <= 0.002) {
           gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // off-screen, costs nothing more
@@ -282,6 +319,12 @@ export function createGrass(shared, opts = {}) {
     mesh,
     uniforms,
     get count() { return geo.instanceCount; },
-    setCount(n) { geo.instanceCount = Math.max(0, Math.min(MAX_BLADES, Math.round(n))); },
+    setCount(n) {
+      const c = Math.max(0, Math.min(MAX_BLADES, Math.round(n)));
+      geo.instanceCount = c;
+      // and the fade follows the count, so the blades always run out by fading
+      // rather than by reaching the edge of what was drawn
+      uniforms.uRadius.value = radiusFor(c);
+    },
   };
 }

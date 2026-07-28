@@ -194,6 +194,7 @@ export function house(M, opts = {}) {
     door = true, doorLit = false, doorW = 1.5, doorH = 2.6,
     windows = 3, lit = 0, winW = 1.3, winH = 1.5,
     glow = null, sill = true, base = null,
+    chimney = 0, chimneyAt = null,
   } = opts;
   const g = new THREE.Group();
   const rnd = mulberry(Math.round(w * 31 + d * 7 + h));
@@ -213,6 +214,30 @@ export function house(M, opts = {}) {
 
   const rg = (ROOFS[roof] ?? ROOFS.gable)(w, d, roofH, roofMat);
   rg.position.y = total; g.add(rg);
+
+  // A chimney, if the house wants one — and it belongs to the HOUSE.
+  //
+  // Marnie's had one placed beside the building in world coordinates while the
+  // building itself was rotated ninety degrees, so it stood in mid-air off the
+  // eave with a gap under it. Eddie: "there are messed up buildings, Marnie's
+  // house for example." A stack has to know where the ridge is, and the only
+  // thing that knows that is the house, so it is built here: it starts INSIDE
+  // the roof and comes out through it, which is the one arrangement that cannot
+  // float whatever the house is later rotated to.
+  if (chimney > 0) {
+    const cx = chimneyAt ? chimneyAt[0] * w * 0.5 : -w * 0.28;
+    const cz = chimneyAt ? chimneyAt[1] * d * 0.5 : 0;
+    // how high the roof is above the eave at that point across the span
+    const under = roof === 'flat' ? Math.max(roofH, 0.3)
+                : roofH * Math.max(0, 1 - Math.abs(cx) / (w * 0.5));
+    const hgt = under + chimney + 1.0;
+    const st = new THREE.Mesh(box(chimney * 0.6, hgt, chimney * 0.6), trim);
+    st.position.set(cx, total - 0.6 + hgt / 2, cz);
+    g.add(st);
+    const cap = new THREE.Mesh(box(chimney * 0.85, chimney * 0.18, chimney * 0.85), trim);
+    cap.position.set(cx, total - 0.6 + hgt, cz);
+    g.add(cap);
+  }
 
   // ---- the front: a door, and windows either side of it ----
   const fz = d / 2 + 0.03;

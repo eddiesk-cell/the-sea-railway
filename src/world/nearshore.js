@@ -197,10 +197,10 @@ const SHORES = {
       const h2 = house(M, {
         w: 22, d: 15, h: 6.4, storeys: 2, storeyH: 4.4, roof: 'gable', roofH: 4.6,
         windows: 5, lit: 0.75, winW: 1.4, winH: 2.0, doorW: 1.8, doorH: 3.0, doorLit: true,
+        // the stack belongs to the house, not to the world beside it
+        chimney: 2.2, chimneyAt: [-0.55, -0.30],
       });
       h2.position.set(C[0], y, C[1]); h2.rotation.y = 1.62; g.add(h2);
-      const stack = new THREE.Mesh(box(2.0, 6.0, 2.0), M.stone);
-      stack.position.set(C[0] - 7, y + 14.0, C[1] - 4); g.add(stack);
       // the jetty it is always seen across
       const jetty = new THREE.Mesh(box(3.0, 0.5, 34), M.wood);
       jetty.position.set(C[0] + 40, 0.8, C[1] + 10); g.add(jetty);
