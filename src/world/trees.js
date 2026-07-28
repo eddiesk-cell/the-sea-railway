@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { mulberry, fillInstances, hillSampler } from './geo.js';
+import { box, mulberry, fillInstances, hillSampler } from './geo.js';
 import { makePaintMaterial } from './paintMaterial.js';
 
 // ---------------------------------------------------------------------------
@@ -96,83 +96,117 @@ function blossom(rnd) {
 
 // --- bamboo: a stand of canes ---
 //
-// The first version was seven bare poles with three flat blobs balanced on
-// each — Eddie: "more branches and leaves, they should look thicker on top".
-// He is describing the actual plant. A bamboo stand is a bare colonnade for
-// most of its height and a dense green ceiling above, and it is that contrast
-// that makes a bamboo grove feel like a room rather than a wood. Nothing
-// branches below halfway; everything branches at once above it.
+// Third attempt, and the first two were wrong in the same way. Eddie: "bamboo
+// does have one trunk, then it branches off at the top and spreads out with
+// leaves — right now I only see leaves on one trunk, it looks very wrong."
+//
+// He is describing the actual plant and I was not building it. A bamboo culm
+// is a single bare jointed pole for most of its length. Branches appear only
+// near the top, two or three to a node, and each one carries FANS OF LONG
+// NARROW BLADES that hang. The result is a plume, held out clear of the pole,
+// and the whole cane bows under the weight of it.
+//
+// What I had was foliage stuck directly to a stick: short branches you could
+// not see and fat little ellipsoids sitting on the culm. The fix is not more
+// of them — it is that a leaf must be a BLADE (long, narrow, tapered,
+// drooping) and that the branch has to be long enough to hold the leaves away
+// from the pole, or the silhouette collapses back onto it.
+
+// One leaf: lying along +X from its stalk at the origin, tapering to a point
+// and drooping under its own weight. Thin enough to read as a blade edge-on.
+function bambooBlade(len) {
+  const g = box(len, 0.0030, 0.019);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const t = (p.getX(i) + len / 2) / len;         // 0 at the stalk, 1 at the tip
+    p.setZ(i, p.getZ(i) * (1 - t * 0.88));         // taper to a point
+    p.setY(i, p.getY(i) - t * t * len * 0.34);     // and let it fall
+  }
+  g.computeVertexNormals();
+  g.translate(len / 2, 0, 0);
+  return g;
+}
+
 function bamboo(rnd) {
   const parts = [], wood = [];
-  const canes = 9;
+  const canes = 6;
 
   for (let i = 0; i < canes; i++) {
-    const a = rnd() * Math.PI * 2, d = 0.03 + rnd() * 0.15;
-    const h = 0.70 + rnd() * 0.30;
-    const lean = (rnd() - 0.5) * 0.15, tip = (rnd() - 0.5) * 0.15;
+    const a = rnd() * Math.PI * 2, d = 0.02 + rnd() * 0.13;
+    const H = 0.74 + rnd() * 0.26;
     const bx = Math.cos(a) * d, bz = Math.sin(a) * d;
-    // every piece of this cane gets the same lean, or it comes apart
-    const onCane = (g, y) => { g.rotateZ(lean); g.rotateX(tip); g.translate(bx, y, bz); return g; };
+    const lean = (rnd() - 0.5) * 0.09;
+    const spin = rnd() * Math.PI * 2;
+    // every piece of this cane gets the same lean and the same spin, or the
+    // pole and its plume come apart
+    const place = (g) => { g.rotateZ(lean); g.rotateY(spin); g.translate(bx, 0, bz); return g; };
 
-    const culm = new THREE.CylinderGeometry(0.0075, 0.013, h, 5);
-    wood.push(onCane(culm, h * 0.5));
-
-    // the nodes — the swollen rings every 60 cm or so. They are what stops a
-    // green cylinder reading as a pipe.
-    const segs = 6;
-    for (let k = 1; k < segs; k++) {
-      const nd = new THREE.CylinderGeometry(0.0165, 0.0165, 0.011, 5);
-      wood.push(onCane(nd, h * (k / segs)));
+    // ---- the culm: straight for two thirds, then bowing over -------------
+    const SEG = 10, segH = H / SEG;
+    let cx = 0, cy = 0, ang = 0;
+    const nodes = [];
+    for (let k = 0; k < SEG; k++) {
+      const t = k / SEG;
+      const r0 = 0.0125 * (1 - t * 0.42);
+      const r1 = 0.0125 * (1 - (t + 1 / SEG) * 0.42);
+      const seg = new THREE.CylinderGeometry(r1, r0, segH * 1.05, 6);
+      seg.rotateZ(-ang);
+      seg.translate(cx + Math.sin(ang) * segH * 0.5, cy + Math.cos(ang) * segH * 0.5, 0);
+      wood.push(place(seg));
+      cx += Math.sin(ang) * segH; cy += Math.cos(ang) * segH;
+      nodes.push({ x: cx, y: cy, t: (k + 1) / SEG, ang });
+      // the swollen ring, which is the one detail that says bamboo and not pipe
+      const nd = new THREE.CylinderGeometry(r1 * 1.42, r1 * 1.42, segH * 0.09, 6);
+      nd.rotateZ(-ang); nd.translate(cx, cy, 0);
+      wood.push(place(nd));
+      // it only bends once it is tall enough to feel its own weight
+      if (t > 0.6) ang += (t - 0.6) * 0.52;
     }
 
-    // branches, upper half only, spiralling by the golden angle so no two sit
-    // above each other
-    for (let k = 0; k < 5; k++) {
-      const t = 0.50 + (k / 5) * 0.48 + rnd() * 0.05;
-      const y = h * t;
-      const ba = a + k * 2.39996 + rnd() * 0.4;
-      const up = 0.34 + rnd() * 0.30;              // young shoots reach, old ones droop
-      const len = 0.09 + rnd() * 0.09 + (t - 0.54) * 0.14;
+    // ---- the plume: branches on the top nodes only ------------------------
+    nodes.forEach((n, k) => {
+      if (n.t < 0.60) return;                       // bare below here. On purpose.
+      const brs = n.t > 0.86 ? 4 : (n.t > 0.72 ? 3 : 2);
+      for (let b = 0; b < brs; b++) {
+        // long enough to hold the leaves clear of the pole — this is the whole
+        // difference between a plume and a bottle brush
+        const len = 0.13 + rnd() * 0.10 + (n.t - 0.6) * 0.12;
+        const up = 0.58 - (n.t - 0.6) * 0.8 + rnd() * 0.20;   // reaching low, level high
+        const az = k * 2.39996 + b * (6.2832 / brs) + rnd() * 0.5;
 
-      // built lying along +X, then swung out and round — so the leaves land
-      // where the branch actually ends instead of near it
-      const swing = (g) => { g.rotateZ(up); g.rotateY(-ba); return onCane(g, y); };
+        // Built lying along +X at the origin, then raised, spun round the
+        // culm, carried up to the node — and only then given the cane's own
+        // bend, lean and spin. One chain, applied to every piece of the
+        // branch, is what keeps the leaves ON the end of the branch.
+        const xf = (g) => {
+          g.rotateZ(up);
+          g.rotateY(-az);
+          g.rotateZ(-n.ang);
+          g.translate(n.x, n.y, 0);
+          g.rotateZ(lean);
+          g.rotateY(spin);
+          g.translate(bx, 0, bz);
+          return g;
+        };
 
-      const stick = new THREE.CylinderGeometry(0.0035, 0.0055, len, 4);
-      stick.rotateZ(-Math.PI / 2); stick.translate(len * 0.5, 0, 0);
-      wood.push(swing(stick));
+        const stick = new THREE.CylinderGeometry(0.0026, 0.0048, len, 4);
+        stick.rotateZ(-Math.PI / 2); stick.translate(len * 0.5, 0, 0);
+        wood.push(xf(stick));
 
-      // three sprays down the outer half, each a fan of long leaves. They are
-      // deliberately large: a bamboo leaf is a hand's length, and a spray
-      // built to scale disappears entirely at any distance you would look at
-      // a grove from — which is how the first version ended up as bare poles.
-      for (let j = 0; j < 3; j++) {
-        const at = len * (0.34 + j * 0.30);
-        const droop = -0.12 - rnd() * 0.38;
-        for (let b = 0; b < 3; b++) {
-          const leaf = new THREE.SphereGeometry(1, 4, 3);
-          leaf.scale(0.105 + rnd() * 0.055, 0.013, 0.030);
-          leaf.rotateY((b - 1) * (0.55 + rnd() * 0.55));
-          leaf.rotateZ(droop);
-          leaf.translate(at + 0.085, -0.006 * j, 0);
-          parts.push(swing(leaf));
+        // two fans down the outer half, and a spray at the tip
+        for (let f = 0; f < 3; f++) {
+          const at = len * (0.52 + f * 0.25);
+          const count = f === 2 ? 6 : 4;
+          for (let j = 0; j < count; j++) {
+            const bl = bambooBlade(0.058 + rnd() * 0.034);
+            bl.rotateZ(-0.22 - rnd() * 0.44);                        // hang
+            bl.rotateX((j - (count - 1) / 2) * (0.60 + rnd() * 0.30)); // fan out
+            bl.translate(at, -0.005, 0);
+            parts.push(xf(bl));
+          }
         }
       }
-    }
-
-    // and the top itself, which is where a stand looks thickest: the cane runs
-    // out of stem and turns entirely into leaf. This is the whole silhouette —
-    // a bamboo grove is a ceiling held up on poles.
-    for (let k = 0; k < 9; k++) {
-      const crest = new THREE.SphereGeometry(1, 4, 3);
-      crest.scale(0.105 + rnd() * 0.065, 0.016, 0.034);
-      crest.rotateZ(-0.20 - rnd() * 0.55);
-      crest.rotateY(rnd() * 6.283);
-      crest.translate(0.075 + rnd() * 0.05, 0, 0);
-      const spin = new THREE.Matrix4().makeRotationY(k * 0.698 + rnd() * 0.4);
-      crest.applyMatrix4(spin);
-      parts.push(onCane(crest, h * (0.90 + rnd() * 0.14)));
-    }
+    });
   }
   return { crown: mergeGeometries(parts, false), wood: mergeGeometries(wood, false) };
 }
