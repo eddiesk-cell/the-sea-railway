@@ -55,8 +55,15 @@ it is; the ground shows you a path. The name arrives only once you are standing
 in the place. You go alone, which is the point — every one of these films opens
 with somebody who does not belong there yet.
 
+**The line is a ring.** Past the last country is the first one again, and the
+join is a fog bank — the land goes, the haze closes to a couple of hundred
+metres, and for twenty seconds there is nothing but water. The wrap happens in
+the middle of that, where there is nothing in sight whose changing you could
+notice. The train does not slow, turn or reverse; it goes into a fog and comes
+out at the beginning.
+
 Two ways to just *be* somewhere. **R** puts you in a window seat on a train that
-runs the whole line by itself and turns round at the end, so it never finishes.
+runs the whole line by itself, round and round, so it never finishes.
 **O** takes wherever you are pointing, makes it home, and circles it — rising,
 falling, never arriving — until you touch the controls again.
 

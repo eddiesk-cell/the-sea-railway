@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createSky } from './world/sky.js';
-import { atmosphereAt, REGIONS, LINE, LINE_END, BLEND } from './regions/index.js';
+import { atmosphereAt, REGIONS, LINE, LINE_START, LINE_END, LINE_LEN, BLEND } from './regions/index.js';
 import { buildInkCountry } from './regions/inkCountry.js';
 import { buildBusStop } from './regions/busStop.js';
 import { buildDrownedRoad } from './regions/drownedRoad.js';
@@ -686,6 +686,12 @@ function travelTo(i) {
   line.held = false;
   destIndex = ((i % REGIONS.length) + REGIONS.length) % REGIONS.length;
   line.target = REGIONS[destIndex].station;
+  // The shorter way round the ring. From the last country to the first, that is
+  // FORWARD through the join — which is the whole point: pressing "next" at the
+  // end of the line used to send the train back up sixty-eight kilometres of
+  // world at nine hundred metres a second.
+  if (line.target - line.z > LINE_LEN / 2) line.target -= LINE_LEN;
+  else if (line.z - line.target > LINE_LEN / 2) line.target += LINE_LEN;
   ensureRegion(REGIONS[destIndex]);
   if (state.mode !== 'ride') {
     state.mode = 'ride';
@@ -702,7 +708,10 @@ function travelTo(i) {
 function nearestStop(z) {
   let best = 0, bd = Infinity;
   REGIONS.forEach((r, i) => {
-    const d = Math.abs(r.station - z);
+    if (!r.stop) return;                 // the Crossing is a seam, not a stop
+    // round the ring, so the last country and the first are neighbours
+    let d = Math.abs(r.station - z);
+    d = Math.min(d, LINE_LEN - d);
     if (d < bd) { bd = d; best = i; }
   });
   return best;
@@ -726,7 +735,18 @@ function advanceLine(dt) {
   } else {
     line.z -= line.cruise * dt;
     line.warp = 0;
-    if (line.z < LINE_END + 60) travelTo(0);       // round again
+  }
+  // Round again — and the ONLY thing that happens is that the number changes.
+  // The air on both sides of this point is the same fifty-fifty mix of the
+  // Crossing and the Sea Railway, the fog is thick enough that there is nothing
+  // in sight either way, and the train does not slow, turn or hesitate. It just
+  // keeps going, and the world has come round.
+  if (line.z <= LINE_END) {
+    line.z += LINE_LEN;
+    if (line.target !== null) line.target += LINE_LEN;
+  } else if (line.z > LINE_START) {
+    line.z -= LINE_LEN;
+    if (line.target !== null) line.target -= LINE_LEN;
   }
   // the ride is smoother if the speed is felt rather than read
   const fov = 52 + line.warp * 13;

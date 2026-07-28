@@ -477,6 +477,44 @@ const ORDER = [
       sunY: 0.60, az: 1.10, cloud: 0.18, exposure: 1.00,
     },
   },
+  // -------------------------------------------------------------------------
+  // The Crossing — the join, and the only stretch of this railway that is not
+  // a country.
+  //
+  // Eddie: "when the train gets to the last stop, I think you should loop to
+  // the first one instead of running backward, so it keeps running and loops
+  // automatically."
+  //
+  // The line is a RING now: past the end of the last country is the first one
+  // again. But a ring has to close somewhere, and the two ends of this world
+  // could not be less alike — the Yamadas leave you on white paper and the Sea
+  // Railway opens in gold at dusk. Cutting straight from one to the other is a
+  // splice you would see every lap.
+  //
+  // So the join is a fog bank. The land goes, the haze closes to two hundred
+  // metres, and for twenty seconds there is nothing but water and the sound of
+  // it. The wrap happens in the middle of that, where there is nothing to see
+  // whose changing you could notice — which is the whole trick, and it is also
+  // the nicest thing on the line: a railway that goes into a fog and comes out
+  // at the beginning.
+  //
+  // It carries no stop number, so it gets no dot on the strip and you cannot
+  // travel to it. It is not a place. It is the seam.
+  {
+    id: 'crossing', stop: 0, title: 'The Crossing', film: 'the long way round', year: null,
+    grass: '#5f7a33', grassLo: '#26302a',
+    length: 760, stationAt: 380,
+    ink: 0, wet: 0, wind: 0.75,
+    sound: { water: 1.00, wind: 0.65, cry: 0.12 },
+    fogDensity: 0.0042, bloom: 0.9, sat: 0.62, vignette: 0.52, mist: 0.75, mistTop: 26,
+    waterDeep: '#39414a', waterShallow: '#6e767c',
+    palette: {
+      zenith:  [0.240, 0.268, 0.320], mid: [0.430, 0.452, 0.482],
+      horizon: [0.680, 0.672, 0.652], sun: [0.860, 0.820, 0.760],
+      fog:     [0.620, 0.622, 0.618],
+      sunY: 0.32, az: 1.05, cloud: 0.88, exposure: 0.94,
+    },
+  },
 ];
 
 // lay them end to end
@@ -490,6 +528,8 @@ export const REGIONS = ORDER.map((r) => {
 
 export const LINE_START = REGIONS[0].zNear;
 export const LINE_END = REGIONS[REGIONS.length - 1].zFar;
+// How far it is all the way round. Past the end is the beginning.
+export const LINE_LEN = LINE_START - LINE_END;
 
 // The whole route, including the stretches not laid yet — because a line you
 // can see the length of is a different thing from a line you can't.
@@ -553,13 +593,18 @@ export function regionAt(z) {
   if (i < 0) i = z > REGIONS[0].zNear ? 0 : REGIONS.length - 1;
   const r = REGIONS[i];
   const H = BLEND / 2;
-  const next = REGIONS[i + 1];
-  if (next && z < r.zFar + H) {
+  const N = REGIONS.length;
+  // Past the last country is the first one, and before the first is the last.
+  // That is what makes the two ends of the line one seam rather than two, and
+  // it is why the train can be moved from one to the other without the air
+  // changing by a hair.
+  const next = REGIONS[(i + 1) % N];
+  if (z < r.zFar + H) {
     const t = 0.5 * THREE.MathUtils.smoothstep((r.zFar + H - z) / H, 0, 1);
     return { a: r, b: next, t };
   }
-  const prev = REGIONS[i - 1];
-  if (prev && z > r.zNear - H) {
+  const prev = REGIONS[(i - 1 + N) % N];
+  if (z > r.zNear - H) {
     const t = 0.5 * THREE.MathUtils.smoothstep((z - (r.zNear - H)) / H, 0, 1);
     return { a: r, b: prev, t };
   }
