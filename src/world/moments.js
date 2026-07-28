@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { box, mulberry, mergePN } from './geo.js';
-import { pal, put } from '../places/kit.js';
+import { box, hill, mulberry, mergePN } from './geo.js';
+import { pal, put, house } from '../places/kit.js';
 import { makeGlowMaterial } from './paintMaterial.js';
-import { shoreGround, beastGeo } from './nearshore.js';
+import { shoreGround, beastGeo, hillTop } from './nearshore.js';
 import { figureGeo } from './life.js';
 
 // ---------------------------------------------------------------------------
@@ -686,6 +686,24 @@ function gardener(M) {
   return { group: g, head, arms };
 }
 
+// A spit: a small piece of dry land a moment can stand on, for the ten
+// countries whose subject was built close to the line and which therefore have
+// no island out in the window. It is deliberately SMALL — these are the quiet
+// ones, and a two-hundred-metre hill in front of a paper aeroplane is the wrong
+// answer to the wrong question.
+//
+// Returns the ground AND its own sampler, because "put a thing on this" is the
+// question every single one of these needs answered and getting it wrong is
+// how everything in this project has ever ended up floating.
+function spit(mat, { at = [-150, 0], r = 60, h = 7, seed = 3, base = -2.4 } = {}) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(hill(r, h, seed, { rough: 0.26, rings: 10, sectors: 20 }), mat);
+  m.position.set(at[0], base, at[1]);
+  g.add(m);
+  const top = hillTop(r, h, seed, 0.26, base);
+  return { group: g, at, r, top: (dx, dz) => top(dx, dz), y: (dx, dz) => top(dx, dz) ?? base };
+}
+
 // ---- pieces the processions are made of ------------------------------------
 
 // A pole with a banner hanging off it — carried, so it stands on the ground at
@@ -809,6 +827,189 @@ function lanternStickGeo() {
   const s = new THREE.CylinderGeometry(0.05, 0.05, 2.0, 5);
   s.translate(0, 1.0, 0);
   return s.toNonIndexed();
+}
+
+// ---- the quiet pieces ------------------------------------------------------
+
+// A rowing boat: a shell with two thwarts. Small, low, and it should look like
+// it would tip if you stood up in it.
+function rowBoatGeo(len = 5.6, beam = 1.7) {
+  const parts = [];
+  const hull = new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5);
+  hull.scale(beam * 0.5, 0.7, len * 0.5); hull.translate(0, 0.7, 0);
+  parts.push(hull.toNonIndexed());
+  const gun = new THREE.TorusGeometry(1, 0.07, 5, 16);
+  gun.rotateX(Math.PI / 2); gun.scale(beam * 0.52, 1, len * 0.52); gun.translate(0, 0.72, 0);
+  parts.push(gun.toNonIndexed());
+  for (const z of [-len * 0.16, len * 0.16]) {
+    const th = box(beam * 0.9, 0.1, 0.34); th.translate(0, 0.6, z);
+    parts.push(th.toNonIndexed());
+  }
+  return mergePN(parts);
+}
+function oarGeo(len = 3.0) {
+  const parts = [];
+  const s = new THREE.CylinderGeometry(0.05, 0.04, len, 5);
+  s.rotateZ(Math.PI / 2); s.translate(len * 0.5, 0, 0); parts.push(s.toNonIndexed());
+  const bl = box(0.9, 0.05, 0.34); bl.translate(len + 0.35, 0, 0);
+  parts.push(bl.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A bicycle, from the side, with as many people on it as the story needs. The
+// Yamadas fit four; Whisper of the Heart manages two and a hill.
+function bicycleGeo() {
+  const parts = [];
+  for (const z of [-0.62, 0.62]) {
+    const w = new THREE.TorusGeometry(0.34, 0.035, 5, 16);
+    w.translate(0, 0.34, z); parts.push(w.toNonIndexed());
+  }
+  const bar = new THREE.CylinderGeometry(0.032, 0.032, 1.2, 5);
+  bar.rotateX(Math.PI / 2); bar.translate(0, 0.62, 0); parts.push(bar.toNonIndexed());
+  const seatT = new THREE.CylinderGeometry(0.032, 0.032, 0.42, 5);
+  seatT.rotateX(-0.45); seatT.translate(0, 0.55, -0.28); parts.push(seatT.toNonIndexed());
+  const fork = new THREE.CylinderGeometry(0.03, 0.03, 0.62, 5);
+  fork.rotateX(0.3); fork.translate(0, 0.55, 0.56); parts.push(fork.toNonIndexed());
+  const bars = new THREE.CylinderGeometry(0.028, 0.028, 0.52, 5);
+  bars.rotateZ(Math.PI / 2); bars.translate(0, 0.88, 0.62); parts.push(bars.toNonIndexed());
+  const sd = new THREE.SphereGeometry(0.1, 6, 5); sd.scale(0.8, 0.5, 1.5);
+  sd.translate(0, 0.78, -0.42); parts.push(sd.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A heron in flight: neck folded back into the shoulders, legs trailing behind,
+// wings held in a shallow bow. Nothing else in the sky has that silhouette, and
+// it is entirely the reason this bird is frightening in that film.
+function heronGeo() {
+  const parts = [];
+  const b = new THREE.SphereGeometry(0.42, 9, 7);
+  b.scale(1, 0.9, 2.4); parts.push(b.toNonIndexed());
+  const nk = new THREE.SphereGeometry(0.26, 8, 6);
+  nk.scale(1, 1, 1.5); nk.translate(0, 0.12, 0.95); parts.push(nk.toNonIndexed());
+  const bill = new THREE.CylinderGeometry(0.09, 0.02, 1.05, 6);
+  bill.rotateX(Math.PI / 2); bill.translate(0, 0.14, 1.9); parts.push(bill.toNonIndexed());
+  for (const s of [-1, 1]) {
+    const w = box(2.9, 0.07, 0.86);
+    w.translate(s * 1.5, 0.05, -0.1);
+    w.rotateZ(s * -0.16); parts.push(w.toNonIndexed());
+    const tip = box(1.5, 0.05, 0.5);
+    tip.translate(s * 3.5, 0.02, -0.45);
+    tip.rotateZ(s * -0.30); parts.push(tip.toNonIndexed());
+    const leg = new THREE.CylinderGeometry(0.035, 0.03, 1.5, 5);
+    leg.rotateX(Math.PI / 2); leg.translate(s * 0.12, -0.06, -1.7);
+    parts.push(leg.toNonIndexed());
+  }
+  const tail = box(0.5, 0.05, 0.72); tail.translate(0, 0.02, -1.1);
+  parts.push(tail.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A flying boat: a hull that is a boat, a wing over it, and a float under each
+// tip. The point is that it is a BOAT — it has a keel and a bow.
+function seaplaneGeo() {
+  const parts = [];
+  const h = new THREE.SphereGeometry(1, 14, 8);
+  h.scale(0.62, 0.68, 4.1); parts.push(h.toNonIndexed());
+  const keel = box(0.24, 0.5, 6.2); keel.translate(0, -0.62, -0.3);
+  parts.push(keel.toNonIndexed());
+  const w = box(9.2, 0.16, 1.5); w.translate(0, 1.05, 0.2);
+  parts.push(w.toNonIndexed());
+  for (const s of [-1, 1]) {
+    const st = box(0.12, 1.05, 0.5); st.translate(s * 2.2, 0.5, 0.2);
+    parts.push(st.toNonIndexed());
+    const fl = new THREE.SphereGeometry(1, 8, 6);
+    fl.scale(0.26, 0.24, 0.95); fl.translate(s * 4.1, 0.55, 0.2);
+    parts.push(fl.toNonIndexed());
+  }
+  const fin = box(0.12, 1.25, 0.95); fin.translate(0, 0.9, -3.5);
+  parts.push(fin.toNonIndexed());
+  const tp = box(2.4, 0.12, 0.75); tp.translate(0, 0.35, -3.6);
+  parts.push(tp.toNonIndexed());
+  const eng = new THREE.CylinderGeometry(0.3, 0.26, 1.1, 8);
+  eng.rotateX(Math.PI / 2); eng.translate(0, 1.35, 0.9); parts.push(eng.toNonIndexed());
+  const prop = box(0.08, 2.1, 0.14); prop.translate(0, 1.35, 1.5);
+  parts.push(prop.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A wave with a fish in it. Ponyo's sisters are not fish swimming under waves —
+// they ARE the waves, with an eye and a tail, and the whole sea becomes a
+// shoal running along beside a car.
+function waveFishGeo() {
+  const parts = [];
+  const b = new THREE.SphereGeometry(1, 12, 8);
+  b.scale(1.5, 2.3, 4.6); b.translate(0, 1.2, 0); parts.push(b.toNonIndexed());
+  const crest = new THREE.ConeGeometry(1.5, 3.4, 8);
+  crest.rotateX(-0.5); crest.translate(0, 3.6, -1.5); parts.push(crest.toNonIndexed());
+  const hd = new THREE.SphereGeometry(1.1, 9, 7);
+  hd.scale(1.15, 1.0, 1.3); hd.translate(0, 2.4, 3.6); parts.push(hd.toNonIndexed());
+  const tail = new THREE.ConeGeometry(1.7, 2.6, 5);
+  tail.rotateX(1.9); tail.translate(0, 1.6, -4.6); parts.push(tail.toNonIndexed());
+  return mergePN(parts);
+}
+
+// Things from a garden, at the size they are to somebody four inches tall: a
+// leaf you could sleep under, a pin the length of a spear, a watering can the
+// size of a shed. Nothing here is odd on its own — it is odd because two very
+// small people are walking between them.
+function bigPropGeo(which) {
+  const parts = [];
+  if (which === 'can') {
+    const b = new THREE.CylinderGeometry(1.5, 1.7, 3.0, 14);
+    b.translate(0, 1.5, 0); parts.push(b.toNonIndexed());
+    const sp = new THREE.CylinderGeometry(0.22, 0.42, 3.4, 8);
+    sp.rotateZ(-0.9); sp.translate(2.0, 2.4, 0); parts.push(sp.toNonIndexed());
+    const hd = new THREE.TorusGeometry(0.9, 0.14, 5, 12);
+    hd.rotateY(Math.PI / 2); hd.translate(-1.5, 3.0, 0); parts.push(hd.toNonIndexed());
+  } else if (which === 'pin') {
+    const s = new THREE.CylinderGeometry(0.09, 0.02, 7.0, 6);
+    s.rotateZ(0.24); s.translate(0, 3.5, 0); parts.push(s.toNonIndexed());
+    const hd = new THREE.SphereGeometry(0.3, 8, 6);
+    hd.translate(-0.85, 7.0, 0); parts.push(hd.toNonIndexed());
+  } else {                                       // a leaf, lying over
+    const l = new THREE.SphereGeometry(1, 12, 7);
+    l.scale(2.4, 0.18, 4.0); l.rotateX(0.2); l.translate(0, 0.7, 0);
+    parts.push(l.toNonIndexed());
+    const st = new THREE.CylinderGeometry(0.13, 0.07, 3.4, 5);
+    st.rotateX(Math.PI / 2); st.translate(0, 0.5, -3.4); parts.push(st.toNonIndexed());
+  }
+  return mergePN(parts);
+}
+
+// A parasol, planted in the grass, which is the whole of that film's first
+// scene and most of its last.
+function parasolGeo() {
+  const parts = [];
+  const c = new THREE.SphereGeometry(1.5, 14, 8, 0, 6.283, 0, 1.15);
+  c.scale(1, 0.62, 1); c.translate(0, 2.0, 0); parts.push(c.toNonIndexed());
+  const sh = new THREE.CylinderGeometry(0.045, 0.045, 2.3, 5);
+  sh.translate(0, 1.15, 0); parts.push(sh.toNonIndexed());
+  return mergePN(parts);
+}
+function paperPlaneGeo() {
+  const parts = [];
+  for (const s of [-1, 1]) {
+    const w = box(0.62, 0.02, 1.5);
+    w.translate(s * 0.32, 0, 0); w.rotateZ(s * -0.42);
+    parts.push(w.toNonIndexed());
+  }
+  const keel = box(0.03, 0.24, 1.5); parts.push(keel.toNonIndexed());
+  return mergePN(parts);
+}
+
+// A van with the back doors open and a band's worth of gear beside it.
+function vanGeo() {
+  const parts = [];
+  const b = box(2.2, 1.8, 5.0); b.translate(0, 1.5, 0); parts.push(b.toNonIndexed());
+  const cab = box(2.1, 1.1, 1.6); cab.translate(0, 2.9, 1.2); parts.push(cab.toNonIndexed());
+  for (const sx of [-1, 1]) for (const sz of [-1.6, 1.6]) {
+    const w = new THREE.CylinderGeometry(0.5, 0.5, 0.26, 10);
+    w.rotateZ(Math.PI / 2); w.translate(sx * 1.05, 0.5, sz);
+    parts.push(w.toNonIndexed());
+  }
+  const door = box(0.1, 1.7, 1.6); door.rotateY(-0.9);
+  door.translate(-1.4, 1.5, -3.0); parts.push(door.toNonIndexed());
+  return mergePN(parts);
 }
 
 // ===========================================================================
@@ -1379,6 +1580,664 @@ const MOMENTS = {
       speed: 0.20, size: 2.2, seed: 7,
     });
     g.add(flock.group); live.push(flock);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // =========================================================================
+  // Phase three: the quiet ones. Small, close, and they need care rather than
+  // scale — which is also why several of them make their own scrap of ground
+  // instead of being given an island.
+  // =========================================================================
+
+  // ---- When Marnie Was There: the boat, and the two of them in it ---------
+  marsh: (shared, G) => {
+    const M = pal(shared, {
+      wood:  { color: '#6a563e', shadowTint: '#261e14', rim: 0.9, bands: 3, grain: 0.24 },
+      dress: { color: '#d8c8b0', shadowTint: '#5e564a', rim: 1.2, bands: 3, grain: 0.12 },
+      coat:  { color: '#4a5a6a', shadowTint: '#18202a', rim: 1.0, bands: 3, grain: 0.14 },
+    });
+    const g = new THREE.Group(), live = [];
+    const { C } = G;
+    const bt = new THREE.Group();
+    const hull = new THREE.Mesh(rowBoatGeo(6.2, 1.9), M.wood);
+    hull.scale.setScalar(1.5); bt.add(hull);
+    // one rowing, one sitting in the stern facing her — which is the entire
+    // relationship, and it is why this shot is the one everybody keeps
+    const rower = new THREE.Mesh(figureGeo(0, 'euro'), M.dress);
+    rower.position.set(0, 0.95, 0.9); rower.scale.setScalar(2.0); bt.add(rower);
+    const sitter = new THREE.Mesh(figureGeo(2, 'showa'), M.coat);
+    sitter.position.set(0, 0.95, -2.4); sitter.rotation.y = Math.PI;
+    sitter.scale.setScalar(2.0); bt.add(sitter);
+    const oars = [];
+    for (const s of [-1, 1]) {
+      const o = new THREE.Mesh(oarGeo(4.2), M.wood);
+      o.position.set(s * 1.3, 1.5, 0.9); o.rotation.y = s > 0 ? 0 : Math.PI;
+      bt.add(o); oars.push({ o, s });
+    }
+    g.add(bt);
+    // In the channel between the island and the line — the only strip of open
+    // water on the window side, and sixty metres wide. Written by eye the first
+    // time it came out at x +7, which is past the track and on the far side of
+    // the world; the island's centre is at C[0] and its rim is 120 m from it,
+    // so anything meant to be BETWEEN them lives at about C[0] + 130.
+    live.push(flier(bt, [
+      [C[0] + 128, -150, 0.5], [C[0] + 140, -40, 0.5],
+      [C[0] + 136, 70, 0.5], [C[0] + 126, 168, 0.5],
+    ], { speed: 2.2, bank: 0, bob: 0.16, closed: false, fade: true }));
+    live.push({
+      update: (t) => {
+        // the stroke: reach, pull, feather. It is slow, and it is the only
+        // thing moving in the whole country.
+        const a = Math.sin(t * 0.9);
+        oars.forEach(({ o, s }) => {
+          o.rotation.z = 0.32 + a * 0.42;
+          o.rotation.y = (s > 0 ? 0 : Math.PI) + a * 0.30 * s;
+        });
+        rower.rotation.x = a * 0.22;
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- From Up on Poppy Hill: the flags go up, and something answers -------
+  //
+  // She raises the signal every morning for a father who is not coming back,
+  // and one day a tug in the harbour runs the answering hoist. Nothing is said.
+  // It is the smallest event in this entire railway and one of the largest.
+  poppy: (shared) => {
+    const M = pal(shared, {
+      wall:  '#e0d6bc', roof: '#a05040', turf: '#6b8a3e',
+      cloth: { color: '#d8d4c8', shadowTint: '#5e5c52', rim: 1.3, bands: 2, grain: 0.10, side: THREE.DoubleSide },
+      hull:  { color: '#3e4a52', shadowTint: '#141a1e', rim: 1.1, bands: 3, grain: 0.14 },
+      wood:  '#5a4632',
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-168, -30], r: 74, h: 17, seed: 21 });
+    g.add(S.group);
+    const hy = S.y(0, 0);
+    const h2 = house(M, {
+      w: 15, d: 11, h: 5.2, storeys: 2, storeyH: 3.6, roof: 'gable', roofH: 3.2,
+      windows: 4, lit: 0.7,
+    });
+    h2.position.set(-168, hy, -30); h2.rotation.y = 1.5; g.add(h2);
+
+    // the halyard, and the flags that climb it
+    const px = -168 + 15, pz = -30 + 8, py = S.y(15, 8) ?? hy;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 15, 6), M.wood);
+    pole.position.set(px, py + 7.5, pz); g.add(pole);
+    const flags = [];
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.3), M.cloth);
+      f.position.set(px + 1.05, py + 2, pz); g.add(f); flags.push(f);
+    }
+    // and the tug, out on the water, running the answer
+    const tug = new THREE.Group();
+    const hl = new THREE.Mesh(rowBoatGeo(14, 5.4), M.hull);
+    hl.scale.setScalar(1.6); tug.add(hl);
+    const cab = new THREE.Mesh(box(4.0, 3.4, 4.4), M.wall);
+    cab.position.set(0, 3.0, -2.0); tug.add(cab);
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 4.0, 8), M.hull);
+    stack.position.set(0, 5.6, -3.4); tug.add(stack);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 9, 5), M.wood);
+    mast.position.set(0, 5.5, 1.4); tug.add(mast);
+    const answer = [];
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.05), M.cloth);
+      f.position.set(0.85, 2.5, 1.4); tug.add(f); answer.push(f);
+    }
+    const puff = smokeStack(M.cloth, { n: 14, at: [0, 8, -3.4], r: 1.0, rise: 16, drift: [6, 2], rate: 0.30, seed: 9 });
+    tug.add(puff.group); live.push(puff);
+    g.add(tug);
+    live.push(flier(tug, [
+      [-58, -260, 0.2], [-72, -90, 0.2], [-66, 90, 0.2], [-50, 250, 0.2],
+    ], { speed: 4.2, bank: 0, bob: 0.14, closed: false, fade: true }));
+
+    // Both hoists climb together on a slow cycle, hold, and come down. The
+    // whole moment is the TIMING — if the tug's flags did not follow hers, it
+    // would only be two boats with bunting.
+    live.push({
+      update: (t) => {
+        const u = smooth((t % 46) / 46, 0.06, 0.30) * (1 - smooth((t % 46) / 46, 0.78, 0.94));
+        flags.forEach((f, i) => {
+          f.position.y = py + 2.0 + u * (11.0 - i * 2.2);
+          f.rotation.y = Math.sin(t * 1.6 + i) * 0.22;
+        });
+        const v = smooth((t % 46) / 46, 0.34, 0.56) * (1 - smooth((t % 46) / 46, 0.80, 0.95));
+        answer.forEach((f, i) => {
+          f.position.y = 2.5 + v * (6.4 - i * 1.3);
+          f.rotation.y = Math.sin(t * 1.9 + i) * 0.22;
+        });
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Arrietty: a garden, at the size a garden is to somebody four inches
+  //      tall. Nothing here is strange on its own.
+  garden: (shared) => {
+    const M = pal(shared, {
+      turf:  '#5c7a3a',
+      metal: { color: '#8a9a92', shadowTint: '#333a36', rim: 1.6, bands: 3, grain: 0.12 },
+      leaf2: { color: '#4e7038', shadowTint: '#1c2814', rim: 0.6, bands: 3, grain: 0.2, translucency: 0.7, sway: 0.03 },
+      steel: { color: '#b8bcc0', shadowTint: '#484c50', rim: 2.0, bands: 2, grain: 0.06 },
+      coat:  { color: '#b03a44', shadowTint: '#3c1418', rim: 1.2, bands: 3, grain: 0.12 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-142, 10], r: 56, h: 6, seed: 9 });
+    g.add(S.group);
+    const at = (dx, dz) => [-142 + dx, S.y(dx, dz), 10 + dz];
+    const place = (geo, mat, dx, dz, s, ry) => {
+      const p = at(dx, dz);
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(p[0], p[1], p[2]); m.rotation.y = ry; m.scale.setScalar(s);
+      g.add(m); return m;
+    };
+    place(bigPropGeo('can'), M.metal, 6, -8, 2.2, 0.6);
+    place(bigPropGeo('leaf'), M.leaf2, -12, 6, 2.6, 1.9);
+    place(bigPropGeo('leaf'), M.leaf2, 14, 14, 2.2, -0.7);
+    const pin = place(bigPropGeo('pin'), M.steel, -2, 2, 2.2, 0.3);
+    // the thread, and the two of them on it. They are TINY, and they are the
+    // only reason the watering can reads as enormous.
+    const thread = new THREE.Mesh(box(0.06, 0.06, 26), M.steel);
+    const a0 = at(-2, 2), a1 = at(-12, 6);
+    thread.position.set((a0[0] + a1[0]) / 2, Math.max(a0[1], a1[1]) + 6.5, (a0[2] + a1[2]) / 2);
+    thread.rotation.y = Math.atan2(a1[0] - a0[0], a1[2] - a0[2]);
+    thread.scale.z = Math.hypot(a1[0] - a0[0], a1[2] - a0[2]) / 26;
+    g.add(thread);
+    const small = [];
+    for (let i = 0; i < 2; i++) {
+      const f = new THREE.Mesh(figureGeo(i ? 2 : 0, 'showa'), M.coat);
+      f.scale.setScalar(1.0); g.add(f); small.push(f);
+    }
+    live.push({
+      update: (t) => {
+        small.forEach((f, i) => {
+          const u = ((t * 0.05 + i * 0.28) % 1);
+          f.position.set(
+            a0[0] + (a1[0] - a0[0]) * u,
+            Math.max(a0[1], a1[1]) + 6.5 + Math.abs(Math.sin(t * 3 + i)) * 0.12,
+            a0[2] + (a1[2] - a0[2]) * u,
+          );
+          f.rotation.y = thread.rotation.y;
+        });
+        pin.rotation.z = Math.sin(t * 0.4) * 0.02;
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Only Yesterday: the safflower, cut before the sun is properly up ---
+  safflower: (shared) => {
+    const M = pal(shared, {
+      turf:  '#7c8a46',
+      red:   { color: '#c8562e', shadowTint: '#4a1c10', rim: 1.4, bands: 3, grain: 0.18 },
+      cloth: { color: '#9a8a6a', shadowTint: '#38321e', rim: 0.9, bands: 3, grain: 0.2 },
+      basket:{ color: '#a08a56', shadowTint: '#3a3020', rim: 0.9, bands: 3, grain: 0.28 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-160, 0], r: 84, h: 12, seed: 33 });
+    g.add(S.group);
+    // the crop: rows of red heads across the whole field
+    const rnd = mulberry(1991);
+    const items = [];
+    for (let i = 0; i < 900; i++) {
+      const dx = -80 + rnd() * 160, dz = -80 + rnd() * 160;
+      const y = S.top(dx, dz);
+      if (y === null) continue;
+      items.push({ pos: [-160 + dx, y + 0.7, dz], rot: [0, rnd() * 6.28, 0], scale: [0.34, 0.5, 0.34] });
+    }
+    put(g, items, new THREE.SphereGeometry(1, 6, 5), M.red);
+    // and the line of pickers working down a row, bent over, moving slowly
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      const dz = -62 + i * (124 / 6);
+      pts.push([-160 - 22, dz, (S.top(-22, dz) ?? 4) + 0.1]);
+    }
+    const par = procession([
+      { geo: figureGeo(1, 'showa'), mat: M.cloth, of: () => true, scale: 2.0, bob: 0.10 },
+    ], pts, { n: 9, speed: 0.55, spacing: 6.0, width: 4.5, seed: 61, march: 0.5 });
+    g.add(par.group); live.push(par);
+    const baskets = [];
+    for (let i = 0; i < 6; i++) {
+      const dx = -34 + i * 9, dz = -40 + (i % 3) * 30;
+      const y = S.top(dx, dz);
+      if (y === null) continue;
+      baskets.push({ pos: [-160 + dx, y + 0.4, dz], rot: [0, rnd() * 6.28, 0], scale: [1.1, 0.8, 1.1] });
+    }
+    put(g, baskets, new THREE.CylinderGeometry(1, 0.8, 1, 10), M.basket);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- The Wind Rises: a paper aeroplane, and the wind taking it ----------
+  wind1920: (shared) => {
+    const M = pal(shared, {
+      turf:  '#8a9a52',
+      paper: { color: '#f0ead8', shadowTint: '#8a8478', rim: 1.8, bands: 2, grain: 0.06, side: THREE.DoubleSide },
+      dress: { color: '#e8e2d2', shadowTint: '#6e6a5e', rim: 1.3, bands: 3, grain: 0.10 },
+      suit:  { color: '#4a4a52', shadowTint: '#181820', rim: 1.0, bands: 3, grain: 0.12 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-150, 6], r: 66, h: 10, seed: 17 });
+    g.add(S.group);
+    const at = (dx, dz) => [-150 + dx, S.y(dx, dz), 6 + dz];
+    const A = at(-16, -18), B = at(14, 20);
+    const her = new THREE.Mesh(figureGeo(0, 'euro'), M.dress);
+    her.position.set(A[0], A[1], A[2]); her.scale.setScalar(2.2); g.add(her);
+    const par = new THREE.Mesh(parasolGeo(), M.paper);
+    par.position.set(A[0] + 1.4, A[1], A[2]); par.scale.setScalar(2.2); g.add(par);
+    const him = new THREE.Mesh(figureGeo(0, 'y1920'), M.suit);
+    him.position.set(B[0], B[1], B[2]); him.rotation.y = Math.atan2(A[0] - B[0], A[2] - B[2]);
+    him.scale.setScalar(2.2); g.add(him);
+    // the plane: it goes from him to her, and the wind decides how
+    const plane = new THREE.Mesh(paperPlaneGeo(), M.paper);
+    plane.scale.setScalar(2.4); g.add(plane);
+    const hi = Math.max(A[1], B[1]);
+    live.push(flier(plane, [
+      [B[0], B[2], hi + 3.4],
+      [B[0] - 10, B[2] - 6, hi + 8.6],
+      [(A[0] + B[0]) / 2 + 8, (A[2] + B[2]) / 2, hi + 11.5],
+      [A[0] + 6, A[2] + 8, hi + 7.0],
+      [A[0], A[2] + 1.5, hi + 3.6],
+    ], { speed: 6.0, bank: 1.0, bob: 0.5, closed: false, fade: true, scale: 2.4, lean: 22 }));
+    live.push({ update: (t) => { par.rotation.z = Math.sin(t * 0.7) * 0.10; } });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Whisper of the Heart: up the hill, two on one bicycle -------------
+  rotary: (shared) => {
+    const M = pal(shared, {
+      turf:  '#6a8a40', wall: '#e2d8c0', roof: '#8a5442',
+      iron:  { color: '#4a4a4e', shadowTint: '#18181a', rim: 1.4, bands: 3, grain: 0.12 },
+      coat:  { color: '#3c5a78', shadowTint: '#141e28', rim: 1.1, bands: 3, grain: 0.12 },
+      skirt: { color: '#c8544a', shadowTint: '#421818', rim: 1.2, bands: 3, grain: 0.12 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-156, -10], r: 72, h: 22, seed: 27 });
+    g.add(S.group);
+    // the shop at the bottom of the hill, with its light on
+    const sy = S.y(44, 26);
+    const shop = house(M, {
+      w: 11, d: 9, h: 4.4, storeys: 2, storeyH: 3.2, roof: 'gable', roofH: 2.6,
+      windows: 3, lit: 1.0, doorLit: true,
+    });
+    shop.position.set(-156 + 44, sy, -10 + 26); shop.rotation.y = -0.7; g.add(shop);
+    const clock = new THREE.Mesh(new THREE.CircleGeometry(1.1, 14), M.warm(1.4, '#ffcf88'));
+    clock.position.set(-156 + 44, sy + 7.6, -10 + 26 + 4.6); clock.renderOrder = 9; g.add(clock);
+
+    // and the climb. Standing on the pedals with somebody on the back, up a
+    // hill neither of them can manage — which is the whole scene.
+    const bike = new THREE.Group();
+    const fr = new THREE.Mesh(bicycleGeo(), M.iron);
+    fr.scale.setScalar(1.9); bike.add(fr);
+    const rider = new THREE.Mesh(figureGeo(0, 'showa'), M.coat);
+    rider.position.set(0, 1.5, 0.5); rider.scale.setScalar(1.9); bike.add(rider);
+    const pillion = new THREE.Mesh(figureGeo(2, 'showa'), M.skirt);
+    pillion.position.set(0, 1.35, -1.5); pillion.rotation.y = 0.4;
+    pillion.scale.setScalar(1.9); bike.add(pillion);
+    g.add(bike);
+    const road = [];
+    for (let i = 0; i <= 6; i++) {
+      const u = i / 6;
+      const dx = 48 - u * 92, dz = 30 - u * 58;
+      road.push([-156 + dx, -10 + dz, (S.top(dx, dz) ?? 4) + 0.9]);
+    }
+    live.push(flier(bike, road, { speed: 3.0, bank: 0.35, bob: 0.10, closed: false, fade: true, scale: 1, lean: 12 }));
+    live.push({
+      update: (t) => {
+        // out of the saddle, rocking — nobody climbs a hill sitting down
+        rider.rotation.z = Math.sin(t * 4.2) * 0.11;
+        rider.position.y = 1.5 + Math.abs(Math.cos(t * 4.2)) * 0.10;
+        bike.rotation.z += Math.sin(t * 4.2) * 0.045;
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- My Neighbours the Yamadas: everyone on one bicycle -----------------
+  sketch: (shared) => {
+    const M = pal(shared, {
+      turf:  '#8c9470',
+      iron:  { color: '#5a5a5e', shadowTint: '#1e1e20', rim: 1.2, bands: 2, grain: 0.10 },
+      a:     { color: '#7a7268', shadowTint: '#2e2b26', rim: 1.0, bands: 2, grain: 0.10 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-138, 0], r: 58, h: 6, seed: 5 });
+    g.add(S.group);
+    const bike = new THREE.Group();
+    const fr = new THREE.Mesh(bicycleGeo(), M.iron);
+    fr.scale.setScalar(2.2); bike.add(fr);
+    // four of them, stacked, which is exactly as sensible as it sounds
+    const cast = [[0, 1.7, 0.6, 0], [2, 1.5, -1.4, 2], [0, 3.2, -0.4, 1], [2, 1.4, 2.0, 2]];
+    const riders = cast.map(([v, y, z]) => {
+      const f = new THREE.Mesh(figureGeo(v, 'showa'), M.a);
+      f.position.set(0, y, z); f.scale.setScalar(2.0); bike.add(f); return f;
+    });
+    g.add(bike);
+    const road = [];
+    for (let i = 0; i <= 6; i++) {
+      const a = (-1 + i / 3) * 0.9;
+      const dx = Math.cos(a) * 40, dz = Math.sin(a) * 40;
+      road.push([-138 + dx, dz, (S.top(dx, dz) ?? 3) + 1.0]);
+    }
+    live.push(flier(bike, road, { speed: 2.6, bank: 0.5, bob: 0.12, closed: false, fade: true, lean: 16 }));
+    live.push({
+      update: (t) => {
+        // it wobbles, and everybody on it wobbles a beat late
+        bike.rotation.z += Math.sin(t * 2.4) * 0.09;
+        riders.forEach((f, i) => { f.rotation.z = Math.sin(t * 2.4 - i * 0.5) * 0.13; });
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Ocean Waves: a country platform in August --------------------------
+  ocean: (shared) => {
+    const M = pal(shared, {
+      turf:  '#6e8a44', wood: '#7a6448',
+      stone: { color: '#b8b0a0', shadowTint: '#4a463e', rim: 0.9, bands: 3, grain: 0.22 },
+      shirt: { color: '#e8e4d8', shadowTint: '#68655c', rim: 1.3, bands: 3, grain: 0.10 },
+      skirt: { color: '#4a6a7a', shadowTint: '#18242a', rim: 1.1, bands: 3, grain: 0.12 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-146, 0], r: 62, h: 9, seed: 13 });
+    g.add(S.group);
+    const py = S.y(24, 0);
+    const plat = new THREE.Mesh(box(6.5, 1.2, 44), M.stone);
+    plat.position.set(-146 + 24, py + 0.6, 0); g.add(plat);
+    const shelt = new THREE.Mesh(box(5.0, 0.3, 9.0), M.wood);
+    shelt.position.set(-146 + 24, py + 4.2, -6); g.add(shelt);
+    for (const sz of [-10, -2]) {
+      const p = new THREE.Mesh(box(0.24, 3.0, 0.24), M.wood);
+      p.position.set(-146 + 25.8, py + 2.7, sz); g.add(p);
+    }
+    const bench = new THREE.Mesh(box(1.2, 0.16, 3.4), M.wood);
+    bench.position.set(-146 + 25.4, py + 1.9, -6); g.add(bench);
+    // two of them, a summer apart, waiting for a train that has not come yet
+    const a = new THREE.Mesh(figureGeo(0, 'showa'), M.shirt);
+    a.position.set(-146 + 23.4, py + 1.2, -2.5); a.rotation.y = 1.2;
+    a.scale.setScalar(2.1); g.add(a);
+    const b = new THREE.Mesh(figureGeo(0, 'showa'), M.skirt);
+    b.position.set(-146 + 24.4, py + 1.2, 3.5); b.rotation.y = -1.5;
+    b.scale.setScalar(2.1); g.add(b);
+    live.push({
+      update: (t) => {
+        // nobody says anything. They look up the line, and away, and back.
+        a.rotation.y = 1.2 + Math.sin(t * 0.23) * 0.7;
+        b.rotation.y = -1.5 + Math.sin(t * 0.19 + 2) * 0.8;
+        b.position.y = py + 1.2 + Math.abs(Math.sin(t * 0.6)) * 0.04;
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Earwig and the Witch: the band unloads in the yard -----------------
+  crooked: (shared) => {
+    const M = pal(shared, {
+      turf:  '#5e7040', wall: '#c8b8a0', roof: '#5a4a44',
+      van:   { color: '#7a4a52', shadowTint: '#2a1618', rim: 1.2, bands: 3, grain: 0.14 },
+      coat:  { color: '#3a3a44', shadowTint: '#121218', rim: 1.1, bands: 3, grain: 0.12 },
+      case:  { color: '#2e2a28', shadowTint: '#0e0c0c', rim: 1.0, bands: 2, grain: 0.10 },
+    });
+    const g = new THREE.Group(), live = [];
+    const S = spit(M.turf, { at: [-140, -6], r: 58, h: 8, seed: 7 });
+    g.add(S.group);
+    const hy = S.y(-14, -12);
+    const h2 = house(M, {
+      w: 13, d: 10, h: 5.0, storeys: 2, storeyH: 3.4, roof: 'gable', roofH: 3.4,
+      windows: 4, lit: 0.8,
+    });
+    h2.position.set(-140 - 14, hy, -6 - 12); h2.rotation.y = 0.35; g.add(h2);
+    const vy = S.y(14, 6);
+    const van = new THREE.Mesh(vanGeo(), M.van);
+    van.position.set(-140 + 14, vy, -6 + 6); van.rotation.y = 1.1;
+    van.scale.setScalar(1.6); g.add(van);
+    // gear coming out of the back of it, one case at a time
+    const cases = [];
+    for (let i = 0; i < 5; i++) {
+      const c = new THREE.Mesh(box(1.5, 1.8, 0.9), M.case);
+      c.rotation.y = 1.1; g.add(c); cases.push(c);
+    }
+    const carriers = [];
+    for (let i = 0; i < 2; i++) {
+      const f = new THREE.Mesh(figureGeo(1, 'euro'), M.coat);
+      f.scale.setScalar(2.1); g.add(f); carriers.push(f);
+    }
+    const from = [-140 + 14 - 4, vy + 1.0, -6 + 6 - 4];
+    const to = [-140 - 8, hy + 1.0, -6 - 6];
+    live.push({
+      update: (t) => {
+        cases.forEach((c, i) => {
+          const u = ((t * 0.06 + i * 0.2) % 1);
+          c.position.set(
+            from[0] + (to[0] - from[0]) * u,
+            from[1] + (to[1] - from[1]) * u + Math.abs(Math.sin(t * 2 + i)) * 0.1,
+            from[2] + (to[2] - from[2]) * u,
+          );
+        });
+        carriers.forEach((f, i) => {
+          const u = ((t * 0.06 + i * 0.5) % 1);
+          f.position.set(
+            from[0] + (to[0] - from[0]) * u - 1.2,
+            from[1] + (to[1] - from[1]) * u - 1.0,
+            from[2] + (to[2] - from[2]) * u,
+          );
+          f.rotation.y = Math.atan2(to[0] - from[0], to[2] - from[2]);
+        });
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Grave of the Fireflies: nothing but fireflies ----------------------
+  //
+  // No people. No event. No building. Every other country here has something
+  // happening in it and this one deliberately does not — the emptiness IS the
+  // memento, and putting a scene in it would be the single worst thing this
+  // project could do.
+  hillside: (shared) => {
+    const M = pal(shared, {});
+    const g = new THREE.Group(), live = [];
+    const spark = makeGlowMaterial(shared, '#ffe08a', 2.2, { flicker: 0.55 });
+    const geo = new THREE.SphereGeometry(0.16, 5, 4);
+    const rnd = mulberry(1988);
+    const N = 260;
+    const fl = [];
+    for (let i = 0; i < N; i++) {
+      fl.push({
+        x: -260 + rnd() * 230, z: -320 + rnd() * 640, y: 1 + rnd() * 26,
+        r: 1.5 + rnd() * 5, w: 0.10 + rnd() * 0.34, ph: rnd() * 6.28,
+        rise: 0.05 + rnd() * 0.22, s: 0.7 + rnd() * 1.1,
+      });
+    }
+    const mesh = new THREE.InstancedMesh(geo, spark, N);
+    mesh.frustumCulled = false; mesh.renderOrder = 9;
+    g.add(mesh);
+    const mm = new THREE.Matrix4(), q = new THREE.Quaternion();
+    const p = new THREE.Vector3(), sv = new THREE.Vector3();
+    live.push({
+      update: (t) => {
+        fl.forEach((f, i) => {
+          const a = f.ph + t * f.w;
+          const y = f.y + ((t * f.rise + f.ph) % 22);
+          p.set(f.x + Math.cos(a) * f.r, y, f.z + Math.sin(a * 0.7) * f.r);
+          // they go out and come back, which is what a firefly does and what
+          // makes a field of them a thing that breathes
+          const k = f.s * (0.35 + 0.65 * Math.max(0, Math.sin(t * 1.7 + f.ph * 3)));
+          sv.setScalar(k * (1 - smooth((t * f.rise + f.ph) % 22, 17, 22)));
+          mm.compose(p, q, sv);
+          mesh.setMatrixAt(i, mm);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Ponyo: the sea gets up and runs beside the road --------------------
+  drowned: (shared, G) => {
+    const M = pal(shared, {
+      wave:  { color: '#3a74b4', shadowTint: '#12283e', rim: 2.0, bands: 3, grain: 0.10 },
+      red:   { color: '#e04a3c', shadowTint: '#4c1410', rim: 1.6, bands: 3, grain: 0.10 },
+    });
+    const g = new THREE.Group(), live = [];
+    // Along the seaward side of the causeway, at speed, between the window and
+    // the town — which is exactly where Ponyo runs. Out at ninety metres, not
+    // forty: a twelve-metre wave with a face on it at arm's length from the
+    // glass is not a shoal running alongside, it is a wall.
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      pts.push([-92 + Math.sin(i * 0.9) * 7, -420 + i * 140, 0.2]);
+    }
+    const shoal = procession([
+      { geo: waveFishGeo(), mat: M.wave, of: () => true, scale: 1.15, bob: 0.9 },
+    ], pts, { n: 12, speed: 26, spacing: 17, width: 11, seed: 8, march: 2.2, sway: 0.12 });
+    g.add(shoal.group); live.push(shoal);
+    // and the girl running along the top of them
+    const her = new THREE.Mesh(figureGeo(2, 'showa'), M.red);
+    her.scale.setScalar(2.6); g.add(her);
+    live.push(flier(her, pts.map(p => [p[0] + 6, p[1] - 26, 6.6]), {
+      speed: 26, bank: 0.2, bob: 0.9, closed: false, fade: true, scale: 2.6, lean: 10,
+    }));
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- The Boy and the Heron: it goes to the tower, and it wants you to
+  //      follow --------------------------------------------------------------
+  tower: (shared, G) => {
+    const M = pal(shared, {
+      grey:  { color: '#8a8e94', shadowTint: '#33363a', rim: 1.5, bands: 3, grain: 0.12 },
+      green: { color: '#4e7a52', shadowTint: '#1a2a1c', rim: 1.4, bands: 3, grain: 0.12 },
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const hr = new THREE.Mesh(heronGeo(), M.grey);
+    hr.scale.setScalar(3.4); g.add(hr);
+    // it circles the house, crosses the wood, and goes in low at the tower's
+    // door every time round — the whole film is that invitation, repeated
+    const ty = (top(0, 0) ?? 10) + 10;
+    live.push(flier(hr, [
+      [C[0] + 120, 90, ty + 44],
+      [C[0] + 40, -40, ty + 30],
+      [C[0] + 16, 4, ty + 4],            // low across the tower door
+      [C[0] - 60, 40, ty + 26],
+      [C[0] - 20, 150, ty + 52],
+      [C[0] + 90, 190, ty + 48],
+    ], { speed: 21, bank: 1.25, bob: 0.5, scale: 3.4, lean: 26 }));
+    // parakeets, on the wall and off it. Far too many, all the same colour.
+    const birds = swarm(M.green, {
+      n: 40, at: [C[0], 0], y: (top(0, 0) ?? 10) + 34, r: 62, rise: 26,
+      speed: 0.30, size: 1.6, seed: 23, flap: 9,
+    });
+    g.add(birds.group); live.push(birds);
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Castle in the Sky, the mine: the trolley, and no brakes -----------
+  slag: (shared, G) => {
+    const M = pal(shared, {
+      iron:  { color: '#5a4a3a', shadowTint: '#201a14', rim: 1.3, bands: 3, grain: 0.16 },
+      wood:  '#4e3e2c',
+      coat:  { color: '#3a4a5a', shadowTint: '#141c24', rim: 1.1, bands: 3, grain: 0.12 },
+      spark: { color: '#ffd28a', shadowTint: '#6a5030', rim: 2.0, bands: 2, grain: 0.06 },
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    // a rail line laid round the flank of the ravine on trestles
+    const rail = [];
+    for (let i = 0; i <= 12; i++) {
+      const a = (-1 + i / 6) * 1.05;
+      const dx = Math.cos(a) * 112, dz = Math.sin(a) * 112;
+      rail.push([C[0] + dx, C[1] + dz, (top(dx, dz) ?? 12) + 2.4]);
+    }
+    const sleepers = [];
+    for (let i = 0; i < rail.length - 1; i++) {
+      for (let k = 0; k < 7; k++) {
+        const u = k / 7;
+        const x = rail[i][0] + (rail[i + 1][0] - rail[i][0]) * u;
+        const z = rail[i][1] + (rail[i + 1][1] - rail[i][1]) * u;
+        const y = rail[i][2] + (rail[i + 1][2] - rail[i][2]) * u;
+        const h = Math.atan2(rail[i + 1][0] - rail[i][0], rail[i + 1][1] - rail[i][1]);
+        sleepers.push({ pos: [x, y - 0.3, z], rot: [0, h, 0], scale: [3.4, 0.3, 1.1] });
+        sleepers.push({ pos: [x, y - 1.6, z], rot: [0, h, 0], scale: [0.5, 2.4, 0.5] });
+      }
+    }
+    put(g, sleepers, box(1, 1, 1), M.wood);
+
+    // and the thing coming down it far too fast, with two on board
+    const car = new THREE.Group();
+    const bed = new THREE.Mesh(box(2.2, 0.5, 3.6), M.iron);
+    bed.position.y = 0.9; car.add(bed);
+    for (const sz of [-1.2, 1.2]) for (const sx of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.2, 10), M.iron);
+      w.rotation.z = Math.PI / 2; w.position.set(sx * 1.0, 0.42, sz); car.add(w);
+    }
+    for (let i = 0; i < 2; i++) {
+      const f = new THREE.Mesh(figureGeo(i ? 2 : 0, 'worker'), M.coat);
+      f.position.set(i ? 0.5 : -0.5, 1.15, i ? -0.7 : 0.7);
+      f.scale.setScalar(1.9); car.add(f);
+    }
+    // sparks off the wheels, which is the only reason a mine cart at night is
+    // exciting rather than a box on a plank
+    const sp = [];
+    for (let i = 0; i < 12; i++) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.09, 5, 4), M.warm(2.4, '#ffcf72'));
+      s.renderOrder = 9; car.add(s); sp.push({ m: s, ph: (i / 12) * 6.28 });
+    }
+    car.scale.setScalar(1.7);
+    g.add(car);
+    live.push(flier(car, rail, { speed: 17, bank: 0.55, bob: 0.06, closed: false, fade: true, scale: 1.7, lean: 18 }));
+    live.push({
+      update: (t) => {
+        sp.forEach(({ m, ph }, i) => {
+          const u = ((t * 2.6 + ph) % 1);
+          m.position.set((i % 2 ? 1 : -1) * 1.0, 0.42 - u * 1.4, 1.2 - u * 5.0);
+          m.scale.setScalar(1 - u);
+        });
+      },
+    });
+    return { group: g, update: (t) => live.forEach(l => l.update(t)) };
+  },
+
+  // ---- Porco Rosso: he comes in low, and everybody stops working ----------
+  cove: (shared, G) => {
+    const M = pal(shared, {
+      red:   { color: '#c03a2c', shadowTint: '#40120c', rim: 1.6, bands: 3, grain: 0.10 },
+      cloth: { color: '#d8cdb4', shadowTint: '#5e584a', rim: 1.2, bands: 3, grain: 0.12 },
+    });
+    const g = new THREE.Group(), live = [];
+    const { C, top } = G;
+    const pl = new THREE.Mesh(seaplaneGeo(), M.red);
+    pl.scale.setScalar(1.5); g.add(pl);
+    // A long flat approach over the water, a touch, and away again — the whole
+    // charm of that aeroplane is that it lands on the sea like a bird and taxis
+    // in like a boat.
+    live.push(flier(pl, [
+      [-56, -560, 94],
+      [-62, -280, 38],
+      [-66, -60, 3.4],                   // down on the water
+      [-62, 120, 3.0],
+      [-70, 320, 34],
+      [-52, 540, 88],
+    ], { speed: 33, bank: 1.15, bob: 0.4, scale: 1.5, closed: false, fade: true, lean: 24 }));
+    // and the crew, out on the near beach to watch it come in — on the rim of
+    // the island facing the channel, not round the back of it
+    const crew = [];
+    for (let i = 0; i < 7; i++) {
+      const dx = 100 + (i % 4) * 6, dz = 26 + Math.floor(i / 4) * 7;
+      const gy = top(dx, dz);
+      if (gy === null) continue;
+      const f = new THREE.Mesh(figureGeo(i % 3 === 0 ? 1 : 0, 'medit'), M.cloth);
+      f.position.set(C[0] + dx, gy, C[1] + dz);
+      f.scale.setScalar(2.1); g.add(f); crew.push(f);
+    }
+    live.push({
+      update: (t) => {
+        // they all turn to follow it, at slightly different moments
+        crew.forEach((f, i) => {
+          f.rotation.y = -1.2 + Math.sin(t * 0.24 + i * 0.35) * 1.5;
+        });
+      },
+    });
     return { group: g, update: (t) => live.forEach(l => l.update(t)) };
   },
 };

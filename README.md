@@ -84,20 +84,27 @@ A country has its subject on the near shore — the house, the town, the tower.
 What it did not have was the thing that *happened* there. Nobody remembers
 Howl's meadow; they remember a castle walking across it.
 
-So each country gets one event, staged where the window already looks, and it
+So every country gets one event, staged where the window already looks, and it
 is always moving — because the difference between the shot and a postcard of
 the shot is that the thing is going somewhere while you watch. The Catbus comes
 down the line past a lamp in the rain and is gone. The Deer God crosses the
 shallows so slowly you are never sure it did, and two hundred kodama turn their
 heads to follow it. Howl's castle walks the meadow while the army marches the
-other way underneath. Kiki banks over the roofs of Koriko at dusk. A glider
-rides the wind over the windmills while an Ohmu comes over the ridge behind
-them. And the gardener stands in the ruins of Laputa with the birds on it.
+other way underneath. A column goes through Market Chipping with the flags up.
+Iron Town works the bellows all night. Something comes over the hill above the
+Tama valley at dark and none of it is the right shape. Kaguya's company comes
+down out of the sky on a cloud, playing music, entirely kind and entirely deaf.
+A paper aeroplane crosses a meadow in 1920. Two people wait on a platform in
+August and say nothing.
 
-Three pieces of machinery serve all of them: a **flier** carried along a spline
+And on one hillside there are fireflies and nothing else. No people, no event,
+no building. That emptiness is the memento, and putting a scene in it would be
+the worst thing this project could do.
+
+Four pieces of machinery serve all of them: a **flier** carried along a spline
 that banks into its turns, a **strider** whose legs take turns and bend at the
-knee, and a **swarm** of small things on their own orbits. Nothing here is
-animated by hand.
+knee, a **procession** of instanced kinds spaced along one path, and a **swarm**
+of small things on their own orbits. Nothing here is animated by hand.
 
 ## What makes it look painted
 

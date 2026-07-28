@@ -778,6 +778,7 @@ export function nearShore(shared, regionId) {
 // hillSampler, but returning a WORLD height and offset to the island's base —
 // the one thing every builder above needs and the one thing that has caused
 // every floating-object bug in this project.
+export { surfaceOf as hillTop };
 function surfaceOf(r, h, seed, rough, base) {
   const rnd = mulberry(seed);
   const off = [];
