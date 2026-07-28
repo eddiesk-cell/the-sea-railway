@@ -7,6 +7,26 @@ import { NOISE, SKY } from './atmosphere.glsl.js';
 // lays down base / shadow / accent, with a wrap term so nothing ever goes fully
 // black, sky bounce from above, a rim off the low sun, and the same fog the
 // water uses. Because everything shares it, everything agrees.
+// How far the shaded side of everything is lifted back toward its own colour.
+//
+// Eddie, riding: "I hardly can see the floor on Spirited Away — you've made it
+// super dark on purpose? I went to the forest and the trees are all so dark
+// too. It's a beautiful painterly world, but can we match the feel of Ghibli,
+// brighter."
+//
+// He is right, and the cause is one habit repeated two hundred times. Every
+// shadowTint in this project was written as "the dark of that colour" —
+// #131c10 under a green, #161210 under a bark — which is how a photograph
+// behaves and not how a painting does. A Ghibli shadow is not a darker version
+// of the surface; it is a DIFFERENT, usually more saturated colour at nearly
+// the same value, and the whole reason those films read as daylight even at
+// dusk is that the gap between lit and unlit is small.
+//
+// Lifting it here rather than editing two hundred hex codes keeps every hue
+// decision anybody made and closes only the gap in VALUE — which is exactly
+// what the difference was. One number, and every surface in the world obeys it.
+const SHADOW_LIFT = 0.42;
+
 export function makePaintMaterial(shared, opts = {}) {
   const {
     color = '#8a8f98',
@@ -29,9 +49,10 @@ export function makePaintMaterial(shared, opts = {}) {
   } = opts;
 
   const base = new THREE.Color(color).convertSRGBToLinear();
-  const shade = shadowTint
+  const shade = (shadowTint
     ? new THREE.Color(shadowTint).convertSRGBToLinear()
-    : base.clone().lerp(new THREE.Color(0.10, 0.14, 0.26), 0.55);
+    : base.clone().lerp(new THREE.Color(0.14, 0.18, 0.30), 0.44)
+  ).lerp(base, SHADOW_LIFT);
 
   const uniforms = Object.assign({
     uBase:      { value: base },
@@ -125,17 +146,28 @@ export function makePaintMaterial(shared, opts = {}) {
         q += smoothstep(0.42, 0.58, fr) / b;      // soften the terraces a little
 
         float shade = cloudShadowAt(vWorld.xz, uTime);
-        q *= mix(1.0, shade, 0.85);
+        q *= mix(1.0, shade, 0.72);
 
+        // The key light COLOURS the lit side; it must not drain it. This used
+        // to multiply straight in, and at dusk uSunTint is (1.0, 0.61, 0.35) —
+        // so every lit surface in the country quietly lost two thirds of its
+        // blue and a third of its green to a tint. Normalised, the warmth
+        // stays and the value does not go anywhere.
         vec3 sunCol = uSunTint * 0.85 + uHorizon * 0.16;
+        sunCol /= max((sunCol.r + sunCol.g + sunCol.b) / 3.0, 1e-3);
         vec3 col = mix(uShade * vInst, uBaseI, q);
-        col *= mix(vec3(1.0), sunCol, q * 0.50);
+        col *= mix(vec3(1.0), sunCol, q * 0.42);
 
         // ---- sky bounce: cool from above, warm haze from below ----
         // tinted by the surface's own colour, or every shadow in the world
-        // turns the same grey and the reds stop being red
+        // turns the same grey and the reds stop being red. This is the light
+        // that fills a Ghibli shadow, and it was set for a night scene.
+        // Left where it was. The shadow lift and the key-light fix above are
+        // the two changes that were actually WRONG before; adding a third
+        // brightener on top of them only bleached the pale-afternoon countries
+        // to paper, which is the opposite mistake and just as far off.
         float up = N.y * 0.5 + 0.5;
-        vec3 ambient = mix(uHorizon * 0.55, uZenith * 1.5 + uMidSky * 0.6, up);
+        vec3 ambient = mix(uHorizon * 0.58, uZenith * 1.5 + uMidSky * 0.60, up);
         col += uBaseI * ambient * 1.05 + ambient * 0.007;
 
         // ---- rim off the low sun ----

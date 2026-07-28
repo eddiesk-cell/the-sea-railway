@@ -591,7 +591,11 @@ export function atmosphereAt(z, hour) {
   const grass = tmpA.clone().lerp(tmpB, t);
   tmpA.set(a.grassLo ?? '#1a2a22').convertSRGBToLinear();
   tmpB.set(b.grassLo ?? '#1a2a22').convertSRGBToLinear();
-  const grassLo = tmpA.clone().lerp(tmpB, t);
+  // The dark end of every blade was written the same way every shadow in this
+  // world was — as the near-black of the grass colour — so a field read as a
+  // dark mat with lit tips instead of as grass. Lifted toward the blade colour
+  // for the same reason and by the same hand as SHADOW_LIFT in paintMaterial.
+  const grassLo = tmpA.clone().lerp(tmpB, t).lerp(grass, 0.30);
 
   const L = (k) => THREE.MathUtils.lerp(a[k] ?? 0, b[k] ?? 0, t);
 

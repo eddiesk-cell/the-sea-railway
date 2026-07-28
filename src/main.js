@@ -41,6 +41,7 @@ import { hill, box, curvedRoof, mulberry, fillInstances } from './world/geo.js';
 import { createGrass, MAX_BLADES } from './world/grass.js';
 import { createForest } from './world/trees.js';
 import { nearShore, SHORE_CROWDS } from './world/nearshore.js';
+import { createMoment } from './world/moments.js';
 import { createArrival, ARRIVAL_CROWDS } from './world/arrival.js';
 import { createPost } from './post/painterly.js';
 
@@ -258,6 +259,17 @@ function ensureRegion(r) {
       if (!routeIsDry(spec, r.station, [shore])) return;
       life.add(spec, r.station, r.stop * 131 + i * 17);
     });
+
+    // And what HAPPENED here. The island is the place; the moment is the event
+    // the film is remembered for, staged on it and always moving — a castle
+    // crossing the meadow, the Deer God in the shallows, a Catbus coming down
+    // the line. It stands on the shore, so it is built after it.
+    const moment = createMoment(shared, r.id, shore);
+    if (moment) {
+      moment.group.position.z += r.station;
+      scene.add(moment.group);
+      moments.set(r.id, moment);
+    }
   }
 }
 // How far ahead the world is made.
@@ -303,6 +315,7 @@ const livePops = new Set();
 const dryRay = new THREE.Raycaster();
 const DOWN = new THREE.Vector3(0, -1, 0);
 const shores = new Map();
+const moments = new Map();
 const groundOf = (r) => [live.get(r.id)?.group, shores.get(r.id)].filter(Boolean);
 function routeIsDry(spec, shiftZ, targets) {
   if (spec.kind !== 'cars' && spec.kind !== 'walkers') return true;
@@ -1210,6 +1223,7 @@ function frame() {
   sound.update(dt, mix, shared.uWind.value);
 
   live.forEach(r => r.update && r.update(clock));
+  moments.forEach(m => m.update(clock));
   places.update(clock, camera.position);
   life.update(clock);
   paintCompass();
@@ -1353,6 +1367,11 @@ window.__blockers = () => {
   return out.length ? out : 'nothing against the glass';
 };
 
+// Jump the world's clock forward. Everything that moves on a long cycle — a
+// castle crossing a meadow, the Deer God's walk, a flight path — is otherwise
+// unverifiable: the preview only renders while a screenshot is being taken, so
+// checking a thirty-second cycle by eye takes a hundred screenshots.
+window.__warp = (sec = 30) => { clock += sec; return +clock.toFixed(1); };
 window.__THREE = THREE;
 window.__cam = camera;
 window.__scene = scene;   // the camera is not in the graph, so this is the way in

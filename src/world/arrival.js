@@ -279,10 +279,12 @@ export function createArrival(shared) {
     gun.position.y = 3.0; f.add(gun);
     const dk = new THREE.Mesh(box(9.4, 0.3, 29.0), M.wood);
     dk.position.y = 3.3; f.add(dk);
+    // the wheelhouse, aft — where a wheelhouse belongs, and where it leaves the
+    // foredeck clear for the gangway instead of standing in it
     const cab = new THREE.Mesh(box(6.4, 3.2, 9.0), M.wall);
-    cab.position.set(0, 5.0, -5.0); f.add(cab);
+    cab.position.set(0, 5.0, -9.5); f.add(cab);
     const cr = new THREE.Mesh(box(7.6, 0.5, 10.4), M.roof);
-    cr.position.set(0, 6.8, -5.0); f.add(cr);
+    cr.position.set(0, 6.8, -9.5); f.add(cr);
     for (let i = 0; i < 10; i++) {
       const l = lantern(M, { h: 1.2, stone: false, lit: true, mat: M.red });
       l.position.set((i % 2 ? 1 : -1) * 4.4, 3.4, -12 + i * 2.7); f.add(l);
@@ -294,14 +296,34 @@ export function createArrival(shared) {
     f.position.set(-62, 0, -212); f.rotation.y = 0.06;
     g.add(f);
 
-    // the gangway up to the quay
-    const gw = new THREE.Mesh(box(13.0, 0.34, 2.8), M.wood);
-    gw.position.set(-68, L0 - 2.6, -212);
-    gw.rotation.z = 0.44; g.add(gw);
+    // ---- the gangway up to the quay ------------------------------------
+    //
+    // This is the THIRD sloped thing in this town to be built the wrong way up
+    // — both stair flights, and now the plank the guests actually walk off the
+    // boat on, which rose toward the ferry and dived under the quay. Every one
+    // of them was a hand-written rotation whose sign nobody could check by
+    // reading it. So: give it the two ENDS it has to join, and let it work out
+    // its own length and angle. A slope you describe by its endpoints cannot be
+    // upside down.
+    const DECK = 3.45;                 // the ferry's deck, where a guest steps off
+    const slope = (x0, y0, x1, y1, z, w, thick, mat) => {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const m = new THREE.Mesh(box(len, thick, w), mat);
+      m.position.set((x0 + x1) / 2, (y0 + y1) / 2, z);
+      m.rotation.z = Math.atan2(y1 - y0, x1 - x0);
+      return m;
+    };
+    // from the middle of the deck to a metre onto the quay: eleven metres of
+    // run for five of rise, which is a gangway rather than a ladder
+    g.add(slope(-62, DECK, -73, L0 + 0.1, -212, 3.0, 0.34, M.wood));
     for (const sz of [-1, 1]) {
-      const rail = new THREE.Mesh(box(13.0, 0.12, 0.12), M.wood);
-      rail.position.set(-68, L0 - 1.7, -212 + sz * 1.3);
-      rail.rotation.z = 0.44; g.add(rail);
+      g.add(slope(-62, DECK + 0.95, -73, L0 + 1.05, -212 + sz * 1.4, 0.14, 0.14, M.wood));
+      for (let i = 0; i <= 4; i++) {
+        const t = i / 4;
+        const px = -62 - t * 11, py = DECK + t * (L0 + 0.1 - DECK);
+        const st = new THREE.Mesh(box(0.12, 0.95, 0.12), M.wood);
+        st.position.set(px, py + 0.48, -212 + sz * 1.4); g.add(st);
+      }
     }
   }
 
@@ -317,7 +339,7 @@ export function createArrival(shared) {
 // ---------------------------------------------------------------------------
 const route = (dz) => [
   [-62, -212 + dz, 3.6],          // standing on the ferry's deck
-  [-67, -212 + dz, 5.6],          // down the gangway
+  [-67.5, -212 + dz, 6.1],        // up the gangway, ON the plank
   [-76, -211 + dz, L0 + 0.1],     // onto the quay
   [-92, -206 + dz, L0 + 0.1],     // and round into the town
   [-100, -206 + dz, L0 + 0.1],

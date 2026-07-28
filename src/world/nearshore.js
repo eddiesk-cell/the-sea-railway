@@ -389,6 +389,11 @@ const SHORES = {
       const kodMesh = new THREE.InstancedMesh(kod, white, items.length);
       fillInstances(kodMesh, items);
       kodMesh.frustumCulled = false;
+      // They are named and they keep their placements, because the moment
+      // turns them: a hillside of heads that all swing round to watch the
+      // same thing is the shot, and a static field of them is only wallpaper.
+      kodMesh.name = 'kodama';
+      kodMesh.userData.items = items;
       g.add(kodMesh);
 
       // wolves on the ridge, boars below, and the herd is what tells you which
@@ -400,34 +405,11 @@ const SHORES = {
       const by = top(-40, 60);
       if (by !== null) g.add(herd(M, boarGeo, M.dark, { n: 16, at: [C[0] - 40, C[1] + 60], r: 44, y: by, s: 3.8, seed: 9, vary: 0.25 }));
 
-      // and the Deer God, standing in the shallows at the edge of it. A shape
-      // with too many points on its head, twice the height of anything else,
-      // and it does not move while you are looking.
-      const dg = new THREE.Group();
-      const bodyG = new THREE.SphereGeometry(1, 10, 8);
-      bodyG.scale(2.4, 1.5, 1.1);
-      const glow = M.cool(0.55, '#cfe4d2');
-      const bodyM = new THREE.Mesh(bodyG, glow); bodyM.position.y = 4.6; dg.add(bodyM);
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-        const l = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.11, 4.6, 6), glow);
-        l.position.set(sx * 1.5, 2.3, sz * 0.7); dg.add(l);
-      }
-      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.5, 2.6, 7), glow);
-      neck.rotation.z = -0.5; neck.position.set(2.6, 6.0, 0); dg.add(neck);
-      const headM = new THREE.Mesh(new THREE.SphereGeometry(0.72, 9, 7), M.paper);
-      headM.scale.set(1.5, 0.95, 0.9); headM.position.set(3.5, 7.0, 0); dg.add(headM);
-      // the antlers: far too many tines, which is the whole silhouette
-      for (let i = 0; i < 22; i++) {
-        const a = (i / 22) * Math.PI * 2;
-        const len = 1.6 + (i % 5) * 0.75;
-        const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, len, 5), M.paper);
-        t.position.set(3.2 + Math.cos(a) * 0.5, 7.7 + len * 0.42, Math.sin(a) * 0.7);
-        t.rotation.set(Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.5);
-        dg.add(t);
-      }
-      dg.position.set(C[0] + 150, 0.2, C[1] + 96); dg.rotation.y = -0.9;
-      dg.scale.setScalar(3.2);
-      g.add(dg);
+      // The Deer God is NOT here. It used to stand in the shallows at the edge
+      // of this island and never move, which is a statue of the shot rather
+      // than the shot — the thing everyone remembers is that it WALKS, so
+      // slowly you are never sure it did. It lives in moments.js now, where it
+      // has legs. One implementation, not two.
 
       g.add(grove(M, { n: 260, at: C, inner: 40, r: 185, kind: 'fir', mat: M.leaf, h: 26, spread: 5, seed: 11 }));
       return g;
@@ -755,11 +737,13 @@ const SHORES = {
 // the Ink Country, the Garden, the Rotary, the Crooked House and the Sketch
 // are all small, near subjects by design.
 
-export function nearShore(shared, regionId) {
+// Where a country's island actually IS, and how high its ground is at any
+// point on it. One place computes this, because the clearance rule below is
+// the sort of arithmetic that gets copied slightly wrong the second time and
+// then quietly puts a walking castle in the sea.
+export function shoreGround(regionId) {
   const spec = SHORES[regionId];
   if (!spec) return null;
-  const M = pal(shared, spec.pal ?? {});
-  const g = new THREE.Group();
   const base = spec.y ?? -3;
 
   // The island is pushed out until its rim clears the track corridor, rather
@@ -770,6 +754,15 @@ export function nearShore(shared, regionId) {
   // has swallowed the line; it is the last time.
   const CLEAR = 78;
   const C = [Math.min(spec.at[0], -CLEAR - spec.r), spec.at[1]];
+  return { C, r: spec.r, h: spec.h, base, top: surfaceOf(spec.r, spec.h, spec.seed, 0.26, base) };
+}
+
+export function nearShore(shared, regionId) {
+  const spec = SHORES[regionId];
+  if (!spec) return null;
+  const M = pal(shared, spec.pal ?? {});
+  const g = new THREE.Group();
+  const { C, base, top } = shoreGround(regionId);
 
   const land = new THREE.Mesh(
     hill(spec.r, spec.h, spec.seed, { rough: 0.26, rings: 16, sectors: 26 }), M.turf);
@@ -778,8 +771,7 @@ export function nearShore(shared, regionId) {
 
   // the same sampler the trees and the grass use, so anything standing on this
   // island stands ON it
-  const surf = surfaceOf(spec.r, spec.h, spec.seed, 0.26, base);
-  g.add(spec.build(M, C, surf));
+  g.add(spec.build(M, C, top));
   return g;
 }
 

@@ -219,9 +219,14 @@ const FINISH = {
         col *= 1.0 + (tooth2 - 0.5) * 0.10 * uInkMode;
       }
 
-      // ---- contrast: give the picture a floor and a ceiling again ----
+      // ---- contrast: give the picture a ceiling, but stop crushing the floor ----
+      // An S-curve with its toe at zero takes a quarter of the value out of
+      // everything in the lower midtones — which in a world already painted
+      // with near-black shadows is where the whole picture lived. The toe now
+      // sits BELOW black, so the curve shapes the highlights and leaves the
+      // darks where the painter put them.
       col = clamp(col, 0.0, 1.0);
-      col = mix(col, smoothstep(vec3(0.015), vec3(0.985), col), 0.46);
+      col = mix(col, smoothstep(vec3(-0.10), vec3(0.985), col), 0.34);
 
       // ---- posterise, dithered so it reads as mixed paint not banding ----
       if (uPaint > 0.001){
@@ -237,7 +242,11 @@ const FINISH = {
 
       // ---- vignette ----
       vec2 q = (uv - 0.5) * vec2(1.0, 0.92);
-      float v = 1.0 - dot(q, q) * uVignette * 1.65 * (1.0 - uInkMode * 0.82);
+      // A Ghibli frame is barely vignetted at all — the corners of a painted
+      // background are as bright as the middle, and the focus is done with
+      // drawing rather than with a dark ring. Scaled back everywhere at once
+      // instead of in twenty-seven region entries.
+      float v = 1.0 - dot(q, q) * uVignette * 1.08 * (1.0 - uInkMode * 0.82);
       col *= clamp(v, 0.0, 1.0);
 
       gl_FragColor = vec4(lin2srgb(max(col, 0.0)), 1.0);
