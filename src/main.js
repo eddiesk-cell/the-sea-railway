@@ -259,10 +259,25 @@ function ensureRegion(r) {
     });
   }
 }
-function ensureNear(z, reach = 1600) {
-  REGIONS.forEach(r => {
-    if (z < r.zNear + reach && z > r.zFar - reach) ensureRegion(r);
-  });
+// How far ahead the world is made.
+//
+// Eddie: "as the train is moving I see objects or grasses suddenly appear and
+// suddenly disappear." A country used to be built when the line came within
+// 1600 m of it — which at this fog density is a quarter of the way through the
+// visible distance, so it arrived in plain sight. Now it is made at 4200 m,
+// where the haze is thick enough to hide the moment it happens.
+//
+// And only ONE country per frame. Building two at once is a stall long enough
+// to read as a jolt, which is the other half of what he was seeing: the world
+// did not only appear, it appeared and stuttered at the same time.
+const REACH = 4200;
+function ensureNear(z, reach = REACH) {
+  for (const r of REGIONS) {
+    if (z < r.zNear + reach && z > r.zFar - reach && !live.has(r.id) && BUILDERS[r.id]) {
+      ensureRegion(r);
+      return;                       // one a frame. The rest will keep.
+    }
+  }
 }
 
 // --- the places off the line, and the people on it ---
@@ -313,7 +328,7 @@ function routeIsDry(spec, shiftZ, targets) {
   return dry >= pts.length * 0.6;
 }
 
-function ensureLifeNear(z, reach = 1500) {
+function ensureLifeNear(z, reach = 3600) {
   REGIONS.forEach((r) => {
     if (livePops.has(r.id)) return;
     if (z > r.zNear + reach || z < r.zFar - reach) return;
@@ -570,7 +585,7 @@ function getDown() {
   state.yaw = Math.PI;                 // facing back down the line, toward -z
   state.pitch = -0.04;
   state.vel.set(0, 0, 0);
-  places.ensureNear(state.pos, 1400);
+  places.ensureNear(state.pos, 1800);
   rideLabel(true, 'on foot', 'G to get back on · W A S D to walk');
   mark();
 }
@@ -1013,7 +1028,7 @@ function frame() {
   const here = state.mode === 'ride' ? line.z : camera.position.z;
   ensureNear(here);
   ensureLifeNear(here);
-  if (state.mode !== 'ride' && state.mode !== 'cine') places.ensureNear(camera.position, 900);
+  if (state.mode !== 'ride' && state.mode !== 'cine') places.ensureNear(camera.position, 1500);
 
   if (state.mode === 'ride') {
     // Dead centre of a carriage, not near its end — sit by the join and the
@@ -1143,6 +1158,7 @@ function frame() {
   const z = line.z;
   train.group.visible = true;
   train.group.position.set(0, 0, z);
+  train.update(z);
   trainHead.set(0, 3.4, z - 9);
   water.uniforms.uGlowC.value.set(trainHead.x, 3.4, trainHead.z);
   water.uniforms.uGlowCr.value = 7.5;

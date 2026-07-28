@@ -60,6 +60,24 @@ runs the whole line by itself and turns round at the end, so it never finishes.
 **O** takes wherever you are pointing, makes it home, and circles it — rising,
 falling, never arriving — until you touch the controls again.
 
+## The train
+
+An electric railcar of the 1930s, which is what the Sea Railway is in the film —
+a self-propelled carriage with a driver's cab in the front end, no locomotive
+and no smoke, which is exactly why it crosses the water in silence.
+
+What stops a carriage reading as a box, in the order it matters: the
+cross-section (the body curves in at the bottom and the roof is a dome, not a
+lid); the bogies (a sprung truck with axleboxes under each end, wheels that
+turn with the ground); the waist beading, which gives the eye a horizontal to
+read the length against; window pillars and recessed doors, so the flank has a
+rhythm; and the gangways, which make it one train rather than five things
+travelling in convoy.
+
+The head is a rounded face — three windows, a lamp on the brow, a destination
+board, a buffer beam and grab rails. Flat, not a bullet: a railcar has a face,
+and a face is nearly upright.
+
 ## What makes it look painted
 
 Three.js draws the geometry. It does not make it a painting — this does:

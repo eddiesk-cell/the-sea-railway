@@ -222,12 +222,93 @@ export function createRailway(shared) {
 // ---------------------------------------------------------------------------
 // The train. Comes out of the haze, runs the length of the world, and is gone.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// The train.
+//
+// Eddie: "work on the train, maybe more details — the head, the carriage — so
+// it doesn't look so much like moving boxes." It was five boxes and a lamp.
+//
+// One thing worth saying before the shape: this train has no steam engine and
+// should not have one. The Sea Railway in the film is an electric railcar of
+// the 1930s — a self-propelled carriage with a driver's cab in the front end,
+// which is exactly why it crosses the water in silence with no smoke and no
+// funnel. So the "head" here is a proper cab car: a rounded face with three
+// windows, a lamp, a destination board and a buffer beam. If a steam
+// locomotive is wanted it is a different railway, and I'd rather be told than
+// assume.
+//
+// What stops a carriage reading as a box, in the order it matters:
+//   1. the cross-section. A real body curves IN at the bottom (tumblehome) and
+//      the roof is a dome, not a lid. Nothing else on this list comes close.
+//   2. bogies. Four wheels floating under a slab is a toy; a sprung truck with
+//      axleboxes under each end is a train.
+//   3. the waistline — one beading strip along the side breaks the flank into
+//      two bands and gives the eye a horizontal to read the length against.
+//   4. window pillars and doors, so the side has a rhythm.
+//   5. the gangway between cars, which is what makes it one train instead of
+//      five things travelling in convoy.
+// ---------------------------------------------------------------------------
+
+// The cross-section, drawn once and extruded down the length of the car: a
+// floor, sides that swell outward and tuck back in at the bottom, shoulders,
+// and a domed roof.
+function bodyProfile(w, h) {
+  const s = new THREE.Shape();
+  const hw = w / 2;
+  s.moveTo(-hw + 0.46, 0);
+  s.lineTo(hw - 0.46, 0);
+  s.quadraticCurveTo(hw, 0.06, hw, 0.66);            // tumblehome
+  s.lineTo(hw, h * 0.72);
+  s.quadraticCurveTo(hw, h * 0.93, hw - 0.66, h);    // shoulder
+  s.quadraticCurveTo(0, h + 0.30, -(hw - 0.66), h);  // roof dome
+  s.quadraticCurveTo(-hw, h * 0.93, -hw, h * 0.72);
+  s.lineTo(-hw, 0.66);
+  s.quadraticCurveTo(-hw, 0.06, -hw + 0.46, 0);
+  return s;
+}
+
+function extrudeBody(shape, len, curve = 10) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth: len, bevelEnabled: false, curveSegments: curve });
+  g.translate(0, 0, -len / 2);
+  g.computeVertexNormals();
+  return g;
+}
+
+// A bogie. Two axles in a sprung frame, with the axleboxes and the tyre faces
+// showing — this is the part of a train the eye reads as machinery.
+function bogie(steel, dark) {
+  const g = new THREE.Group();
+  const frame = new THREE.Mesh(box(2.10, 0.30, 3.30), steel);
+  frame.position.y = 1.02; g.add(frame);
+  const bolster = new THREE.Mesh(box(2.40, 0.22, 0.80), steel);
+  bolster.position.y = 1.24; g.add(bolster);
+  for (const sz of [-1.08, 1.08]) {
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, RAIL_HALF * 2.1, 8), dark);
+    axle.rotation.z = Math.PI / 2; axle.position.set(0, 0.56, sz); g.add(axle);
+    for (const sx of [-1, 1]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.13, 16), steel);
+      w.rotation.z = Math.PI / 2; w.position.set(sx * RAIL_HALF, 0.56, sz);
+      w.name = 'wheel'; g.add(w);
+      const tyre = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.05, 5, 18), dark);
+      tyre.rotation.y = Math.PI / 2; tyre.position.set(sx * RAIL_HALF, 0.56, sz); g.add(tyre);
+      const abox = new THREE.Mesh(box(0.30, 0.34, 0.40), dark);
+      abox.position.set(sx * 1.02, 0.72, sz); g.add(abox);
+      const spring = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.42, 8), steel);
+      spring.position.set(sx * 1.02, 1.06, sz); g.add(spring);
+    }
+  }
+  return g;
+}
+
 export function createTrain(shared) {
   const group = new THREE.Group();
 
   const shell = makePaintMaterial(shared, { color: '#2b3630', shadowTint: '#0c1220', rim: 1.5, bands: 3, grain: 0.12 });
   const trim = makePaintMaterial(shared, { color: '#4a3128', shadowTint: '#140f1c', rim: 1.1, bands: 3, grain: 0.14 });
   const steel = makePaintMaterial(shared, { color: '#5a6068', shadowTint: '#181c26', rim: 1.7, bands: 4, grain: 0.08 });
+  const dark = makePaintMaterial(shared, { color: '#20242a', shadowTint: '#080a0e', rim: 1.2, bands: 3, grain: 0.16 });
+  const roofMat = makePaintMaterial(shared, { color: '#3a4249', shadowTint: '#12161c', rim: 1.0, bands: 3, grain: 0.18, grainScale: 1.4 });
+  const brass = makePaintMaterial(shared, { color: '#8a6a3a', shadowTint: '#2a1e10', rim: 2.0, bands: 3, grain: 0.10 });
 
   // Windows with people in them, drawn procedurally in the fragment shader:
   // a row of lit panes, some with a shoulders-and-head silhouette sitting still.
@@ -255,38 +336,164 @@ export function createTrain(shared) {
        vec3 outc = mix(vec3(0.02, 0.025, 0.04), lit, frame);
        outc = mix(outc, vec3(0.012, 0.02, 0.035), body * frame * 0.94);
        gl_FragColor = vec4(outc, 1.0);`);
-  winMat.uniforms.uPanes = { value: 9.0 };
+  winMat.uniforms.uPanes = { value: 6.0 };
   winMat.vertexShader = winMat.vertexShader
     .replace('varying float vSeed;', 'varying float vSeed;\n      varying vec2 vUv;')
     .replace('void main(){', 'void main(){\n        vUv = uv;');
   winMat.needsUpdate = true;
 
   const headMat = makeGlowMaterial(shared, '#fff0cf', 2.4);
+  const boardMat = makeGlowMaterial(shared, '#ffd9a0', 1.1);
 
-  const CAR_LEN = 17, CAR_W = 3.9, CAR_H = 3.7;
+  const CAR_LEN = 17, CAR_W = 3.9, BODY_H = 3.70, FLOOR_Y = 1.05;
+  const PANES = 6;
   const cars = 5;
+  const wheels = [];
+
+  const bodyGeo = extrudeBody(bodyProfile(CAR_W, BODY_H), CAR_LEN);
+
   for (let i = 0; i < cars; i++) {
     const z = i * (CAR_LEN + 1.6);
     const car = new THREE.Group();
     car.position.z = z;
+    const isCab = i === 0;
 
-    const body = new THREE.Mesh(box(CAR_W, CAR_H, CAR_LEN), shell);
-    body.position.y = 2.9;
+    // ---- the shell -------------------------------------------------------
+    const body = new THREE.Mesh(bodyGeo, shell);
+    body.position.y = FLOOR_Y;
     car.add(body);
 
-    const roof = new THREE.Mesh(box(CAR_W + 0.24, 0.5, CAR_LEN + 0.3), trim);
-    roof.position.y = 2.9 + CAR_H / 2 + 0.16;
-    car.add(roof);
+    // the roof, laid over the dome as its own colour, with ventilators
+    const roofShape = bodyProfile(CAR_W - 0.02, BODY_H - 0.16);
+    const cap = new THREE.Mesh(extrudeBody(roofShape, CAR_LEN + 0.10), roofMat);
+    cap.position.y = FLOOR_Y + 0.16;
+    car.add(cap);
+    for (let v = 0; v < 6; v++) {
+      const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.24, 0.20, 8), roofMat);
+      vent.position.set(0, FLOOR_Y + BODY_H + 0.32, -CAR_LEN / 2 + 2.0 + v * (CAR_LEN - 4.0) / 5);
+      car.add(vent);
+    }
 
-    const skirt = new THREE.Mesh(box(CAR_W - 0.5, 1.0, CAR_LEN - 0.6), steel);
-    skirt.position.y = 1.45;
-    car.add(skirt);
-
+    // ---- the waist beading: one strip, and the flank stops being a slab ---
     for (const sx of [-1, 1]) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN * 0.88, 1.62), winMat);
-      win.position.set(sx * (CAR_W / 2 + 0.03), 3.61, 0);
+      const belt = new THREE.Mesh(box(0.09, 0.16, CAR_LEN - 0.5), trim);
+      belt.position.set(sx * (CAR_W / 2 + 0.01), FLOOR_Y + 1.42, 0);
+      car.add(belt);
+      const upper = new THREE.Mesh(box(0.07, 0.11, CAR_LEN - 0.5), trim);
+      upper.position.set(sx * (CAR_W / 2 - 0.02), FLOOR_Y + 2.86, 0);
+      car.add(upper);
+      // and the footboard along the bottom, which is where the eye finds the
+      // line of the car
+      const step = new THREE.Mesh(box(0.34, 0.10, CAR_LEN - 1.2), dark);
+      step.position.set(sx * (CAR_W / 2 - 0.18), FLOOR_Y - 0.10, 0);
+      car.add(step);
+    }
+
+    // ---- windows, with pillars between them ------------------------------
+    for (const sx of [-1, 1]) {
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(CAR_LEN * 0.80, 1.58), winMat);
+      win.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.10, 0);
       win.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
       car.add(win);
+      const span = CAR_LEN * 0.80;
+      for (let m = 0; m <= PANES; m++) {
+        const pil = new THREE.Mesh(box(0.10, 1.72, 0.20), shell);
+        pil.position.set(sx * (CAR_W / 2 + 0.02), FLOOR_Y + 2.10, -span / 2 + (m / PANES) * span);
+        car.add(pil);
+      }
+      // two doors, recessed, with their own small light
+      for (const dz of [-CAR_LEN * 0.34, CAR_LEN * 0.34]) {
+        const rec = new THREE.Mesh(box(0.10, 2.45, 1.30), dark);
+        rec.position.set(sx * (CAR_W / 2 + 0.01), FLOOR_Y + 1.24, dz);
+        car.add(rec);
+        const dwin = new THREE.Mesh(new THREE.PlaneGeometry(0.70, 0.66), winMat);
+        dwin.position.set(sx * (CAR_W / 2 + 0.07), FLOOR_Y + 2.06, dz);
+        dwin.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+        car.add(dwin);
+        const rail2 = new THREE.Mesh(box(0.06, 1.5, 0.06), brass);
+        rail2.position.set(sx * (CAR_W / 2 + 0.10), FLOOR_Y + 1.30, dz - 0.72);
+        car.add(rail2);
+      }
+    }
+
+    // ---- the head ---------------------------------------------------------
+    if (isCab) {
+      // A rounded prow rather than a flat end. Half of it lives inside the
+      // body, which is free: the shell hides it and the join needs no work.
+      // Flat, with rounded corners — NOT a bullet. The first version scaled
+      // the nose 2.35 m deep, which made a smooth pod with the cab windows
+      // buried inside it: a blob with a lamp. This railcar has a FACE, and a
+      // face is nearly upright, so the prow is only a metre deep and the
+      // windows sit proud of it where they can be seen.
+      const NOSE = 1.05;
+      const FACE = -CAR_LEN / 2 - NOSE;
+      const nose = new THREE.Mesh(new THREE.SphereGeometry(1, 22, 14), shell);
+      nose.scale.set(CAR_W / 2, BODY_H * 0.54, NOSE);
+      nose.position.set(0, FLOOR_Y + BODY_H * 0.50, -CAR_LEN / 2 + 0.05);
+      car.add(nose);
+      const brow = new THREE.Mesh(new THREE.SphereGeometry(1, 22, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), roofMat);
+      brow.scale.set(CAR_W / 2 - 0.02, BODY_H * 0.28, NOSE - 0.03);
+      brow.position.set(0, FLOOR_Y + BODY_H * 0.66, -CAR_LEN / 2 + 0.05);
+      car.add(brow);
+
+      // three windows across the face, the middle one square on and biggest
+      for (const k of [-1, 0, 1]) {
+        const wide = k ? 0.92 : 1.34;
+        const zoff = Math.abs(k) * 0.30;
+        const frame = new THREE.Mesh(box(wide + 0.20, 1.32, 0.10), trim);
+        frame.position.set(k * 1.14, FLOOR_Y + 2.52, FACE - 0.10 + zoff);
+        frame.rotation.y = -k * 0.34;
+        car.add(frame);
+        const w = new THREE.Mesh(new THREE.PlaneGeometry(wide, 1.12), winMat);
+        w.position.set(k * 1.14, FLOOR_Y + 2.52, FACE - 0.17 + zoff);
+        w.rotation.y = -k * 0.34;
+        car.add(w);
+      }
+      // the lamp on the brow, and the board that says where it is going
+      const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.33, 0.40, 12), steel);
+      lamp.rotation.x = Math.PI / 2;
+      lamp.position.set(0, FLOOR_Y + 3.42, FACE + 0.16);
+      car.add(lamp);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 9), headMat);
+      bulb.position.set(0, FLOOR_Y + 3.42, FACE - 0.10);
+      bulb.renderOrder = 9;
+      car.add(bulb);
+      const board = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.34), boardMat);
+      board.position.set(0, FLOOR_Y + 1.46, FACE - 0.13);
+      car.add(board);
+      const boardF = new THREE.Mesh(box(1.8, 0.50, 0.09), trim);
+      boardF.position.set(0, FLOOR_Y + 1.46, FACE - 0.07);
+      car.add(boardF);
+
+      // the beam and the buffers under the face
+      const beam = new THREE.Mesh(box(CAR_W - 0.4, 0.36, 0.30), dark);
+      beam.position.set(0, FLOOR_Y - 0.20, FACE - 0.10);
+      car.add(beam);
+      for (const sx of [-1, 1]) {
+        const buf = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.15, 0.50, 10), steel);
+        buf.rotation.x = Math.PI / 2;
+        buf.position.set(sx * 1.14, FLOOR_Y - 0.20, FACE - 0.36);
+        car.add(buf);
+        // the handrails either side of the door a driver climbs in by
+        const grab = new THREE.Mesh(box(0.05, 2.0, 0.05), brass);
+        grab.position.set(sx * 1.72, FLOOR_Y + 1.4, FACE + 0.55);
+        car.add(grab);
+      }
+      const coupler = new THREE.Mesh(box(0.26, 0.26, 0.9), steel);
+      coupler.position.set(0, FLOOR_Y - 0.32, FACE - 0.52);
+      car.add(coupler);
+    }
+
+    // ---- the gangway to the car behind ------------------------------------
+    if (i < cars - 1) {
+      for (let r = 0; r < 5; r++) {
+        const ring = new THREE.Mesh(box(2.2 - r * 0.04, 2.5 - r * 0.05, 0.14), dark);
+        ring.position.set(0, FLOOR_Y + 1.55, CAR_LEN / 2 + 0.22 + r * 0.30);
+        car.add(ring);
+      }
+      const barA = new THREE.Mesh(box(0.22, 0.22, 1.6), steel);
+      barA.position.set(0, FLOOR_Y - 0.20, CAR_LEN / 2 + 0.8);
+      car.add(barA);
     }
 
     // ---- the inside of the left-hand wall, for the seat by the window ----
@@ -361,24 +568,29 @@ export function createTrain(shared) {
       car.add(leg);
     }
 
-    for (const wz of [-CAR_LEN * 0.32, CAR_LEN * 0.32]) {
-      for (const wx of [-RAIL_HALF, RAIL_HALF]) {
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.2, 10), steel);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(wx, 1.1, wz);
-        car.add(wheel);
-      }
+    // ---- what it runs on --------------------------------------------------
+    for (const bz of [-CAR_LEN * 0.31, CAR_LEN * 0.31]) {
+      const b = bogie(steel, dark);
+      b.position.z = bz;
+      car.add(b);
+      b.traverse((o) => { if (o.name === 'wheel') wheels.push(o); });
     }
     group.add(car);
   }
 
-  // the headlamp, up front
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), headMat);
-  head.position.set(0, 3.4, -CAR_LEN / 2 - 0.4);
-  group.add(head);
-
   group.visible = false;
   const totalLen = cars * (CAR_LEN + 1.6);
 
-  return { group, totalLen, winMat };
+  // The wheels turn with the ground they are on. It is a small thing and it is
+  // the difference between a train and a train-shaped object sliding along.
+  let lastZ = null;
+  function update(z) {
+    if (lastZ === null) { lastZ = z; return; }
+    const d = z - lastZ; lastZ = z;
+    if (!d) return;
+    const turn = d / 0.56;                    // wheel radius
+    for (let i = 0; i < wheels.length; i++) wheels[i].rotation.y += turn;
+  }
+
+  return { group, totalLen, winMat, update };
 }
