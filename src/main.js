@@ -57,6 +57,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;   // the paint pass does its own
+// Enhanced: Enable shadows for dynamic lighting
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.12, 6000);
@@ -92,6 +95,30 @@ const shared = {
 const sky = createSky();
 scene.add(sky.mesh);
 
+// --- Dynamic lighting: directional sun light with shadows ---
+const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+sunLight.position.set(200, 80, 300);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 10;
+sunLight.shadow.camera.far = 2000;
+sunLight.shadow.camera.left = -400;
+sunLight.shadow.camera.right = 400;
+sunLight.shadow.camera.top = 400;
+sunLight.shadow.camera.bottom = -400;
+sunLight.shadow.bias = -0.0003;
+sunLight.shadow.normalBias = 0.02;
+scene.add(sunLight);
+
+// Ambient fill light for shadow areas
+const ambientLight = new THREE.AmbientLight(0x4a5a7a, 0.35);
+scene.add(ambientLight);
+
+// Hemisphere light for natural outdoor lighting gradient
+const hemiLight = new THREE.HemisphereLight(0x8fb4ff, 0x5a4a3a, 0.4);
+scene.add(hemiLight);
+
 // --- water ---
 const water = createWater(shared);
 scene.add(water.mesh);
@@ -100,6 +127,8 @@ scene.add(water.mesh);
 const BATH = new THREE.Vector3(-268, 0, -198);
 const bath = createBathhouse(shared, { position: BATH, rotation: 0.52 });
 bath.group.scale.setScalar(1.22);
+// Enable shadows for bathhouse
+bath.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(bath.group);
 water.uniforms.uGlowA.value.set(BATH.x, 58, BATH.z);
 water.uniforms.uGlowAr.value = 78;
@@ -109,20 +138,26 @@ scene.add(steam.mesh);
 
 // --- the line, the platform, the train ---
 const rail = createRailway(shared);
+rail.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(rail.group);
 water.uniforms.uGlowB.value.copy(rail.lampWorld);
 
 const train = createTrain(shared);
+train.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(train.group);
 
 // --- the living things ---
 const spirits = createSpirits(shared);
+spirits.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(spirits.group);
 const lanterns = createLanterns(shared);
+lanterns.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(lanterns.group);
 const dragon = createDragon(shared);
+dragon.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(dragon.mesh);
 const reeds = createReeds(shared);
+reeds.mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 scene.add(reeds.mesh);
 
 // --- the field: millions of blades, one draw call, no stored positions ---
@@ -182,6 +217,11 @@ function harvestLand(group) {
   const p = new THREE.Vector3();
   group.traverse((o) => {
     if (!o.isMesh || !o.geometry) return;
+    // Enable shadows for all meshes in the world
+    if (o.isMesh && o.geometry) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
     const d = o.geometry.userData.hill;
     if (d) {
       o.getWorldPosition(p);
@@ -365,6 +405,7 @@ function ensureLifeNear(z, reach = 3600) {
 // bathhouse, which means it is in the very first frame of the world.
 {
   const arrival = createArrival(shared);
+  arrival.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(arrival);
   harvestLand(arrival);
   ARRIVAL_CROWDS.forEach((spec, i) => life.add(spec, 0, 7700 + i * 31));
@@ -389,6 +430,8 @@ const sound = createSound();
   ridges.forEach(([x, z, r, h, m], i) => {
     const mesh = new THREE.Mesh(hill(r, h, 30 + i, { rough: 0.5, rings: 14, sectors: 22 }), m);
     mesh.position.set(x, -10, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     scene.add(mesh); harvestLand(mesh);
   });
   // A wooded shoulder for the bathhouse to sit against, not a dome behind it.
@@ -406,11 +449,14 @@ const sound = createSound();
   shoulders.forEach(({ at, r, h, seed, mat }) => {
     const m = new THREE.Mesh(hill(r, h, seed, { rough: ROUGH }), mat);
     m.position.copy(at);
+    m.castShadow = true;
+    m.receiveShadow = true;
     scene.add(m); harvestLand(m);
   });
 
   // a wood: firs, broadleaves, wind-shaped pines, blossom and bamboo
   const forest = createForest(shared, shoulders.map(({ at, r, h, seed }) => ({ at, r, h, seed, rough: ROUGH })));
+  forest.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(forest.group);
   window.__trees = forest.count;
 
@@ -427,16 +473,19 @@ const sound = createSound();
   for (const sx of [-4.6, 4.6]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.56, 12, 12), red);
     leg.position.set(sx, 5.4, 0);
+    leg.castShadow = true;
+    leg.receiveShadow = true;
     t.add(leg);
   }
   const lintel = new THREE.Mesh(box(14.6, 0.8, 1.1), dark);
-  lintel.position.y = 11.6; t.add(lintel);
+  lintel.position.y = 11.6; lintel.castShadow = true; lintel.receiveShadow = true; t.add(lintel);
   const lintel2 = new THREE.Mesh(box(16.6, 1.0, 1.35), red);
-  lintel2.position.y = 12.7; t.add(lintel2);
+  lintel2.position.y = 12.7; lintel2.castShadow = true; lintel2.receiveShadow = true; t.add(lintel2);
   const cap = new THREE.Mesh(curvedRoof(18.4, 2.4, 0.9, { seg: 10, power: 1.5, corner: 0.5, flare: 0.35 }), dark);
-  cap.position.y = 13.2; t.add(cap);
+  cap.position.y = 13.2; cap.castShadow = true; cap.receiveShadow = true; t.add(cap);
   const post = new THREE.Mesh(box(0.7, 1.5, 0.8), red);
-  post.position.y = 12.0; t.add(post);
+  post.position.y = 12.0; post.castShadow = true; post.receiveShadow = true; t.add(post);
+  t.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(t);
 }
 
